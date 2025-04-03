@@ -1,0 +1,12 @@
+<resources>
+    <item name="title" type="string">Default</item>
+    <plurals name="lingohub_quantity_string" translatable="false">
+        <item quantity="zero">zero</item>
+        <item quantity="one">one</item>
+        <item quantity="two">two</item>
+        <item quantity="few">few</item>
+        <item quantity="many">many</item>
+        <item quantity="other">other</item>
+    </plurals>
+    <public />
+</resources>

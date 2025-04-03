@@ -1,0 +1,5 @@
+<resources>
+  <string name="app_name">Lingohub</string>
+  <string name="title">Diese App demonstriert die Integration des Lingohub SDK für Android</string>
+  <string name="header">Willkommen bei Lingohub</string>
+</resources>
