@@ -48,7 +48,7 @@ class YourApplication : Application() {
 }
 ```
 
-Lingohub needs to be wrapped around the activity context in order to replace strings immediately after LingoHub.update(). If you want instant updates, we recommend implementing a BaseActivity class from which all your other Activity classes extend. Otherwise an App restart will make changes take effect.
+Lingohub should be wrapped around the activity context in order to replace strings. If you want instant updates, we recommend implementing a BaseActivity class from which all your other Activity classes extend. Otherwise an App restart will make changes take effect.
 
 ```kotlin
 abstract class BaseActivity : AppCompatActivity(), LingohubUpdateListener {
@@ -97,12 +97,27 @@ Lingohub.setLocale(Locale.GERMAN) // Switch to German
 
 ### Environment Configuration
 
+Initialize the Lingohub SDK with optional parameters:
+
+| Parameter   | Example Value | Description                                                     | Default     |
+| ----------- | ------------- | --------------------------------------------------------------- | ----------- |
+| environment | .production   | Environment to use (.production, .staging, .development, .test) | .production |
+| logLevel    | .none         | Control debug logging output (.none or .full)                   | .none       |
+
 ```kotlin
-Lingohub.configure(
-    context = this,
-    apiKey = "your-api-key",
-    environment = Environment.DEVELOPMENT // For development environment
-)
+class YourApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+
+        // Configure Lingohub with your API key
+        Lingohub.configure(
+            context = this,
+            apiKey = "your-api-key",
+            environment = Environment.PRODUCTION // Optional, defaults to PRODUCTION
+            logLevel = LingohubLogLevel.FULL // Not recommended for PRODUCTION
+        )
+    }
+}
 ```
 
 ### Update Notifications
@@ -202,40 +217,6 @@ For example on every app start
 
 ```kotlin
 Lingohub.update()
-```
-
-### Environments
-
-Available environments:
-
-- **Production** (`.production`): The default environment for released apps
-- **Development** (`.development`): For development and testing
-- **Staging** (`.staging`): For pre-production testing
-- **Test** (`.test`): For running automated tests
-
-### Optional Paramters
-
-Initialize the Lingohub SDK with optional parameters:
-
-| Parameter   | Example Value | Description                                                     | Default     |
-| ----------- | ------------- | --------------------------------------------------------------- | ----------- |
-| environment | .production   | Environment to use (.production, .staging, .development, .test) | .production |
-| logLevel    | .none         | Control debug logging output (.none or .full)                   | .none       |
-
-```kotlin
-class YourApplication : Application() {
-    override fun onCreate() {
-        super.onCreate()
-
-        // Configure Lingohub with your API key
-        Lingohub.configure(
-            context = this,
-            apiKey = "your-api-key",
-            environment = Environment.PRODUCTION // Optional, defaults to PRODUCTION
-            logLevel = LingohubLogLevel.FULL // Not recommended for PRODUCTION
-        )
-    }
-}
 ```
 
 ## Support
