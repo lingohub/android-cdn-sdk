@@ -19,13 +19,22 @@ The Lingohub Android SDK provides seamless integration of Lingohub's localizatio
 
 ## Installation
 
-Add the Lingohub SDK to your project's `build.gradle` file:
+The Lingohub Android SDK is currently distributed via [JitPack](https://jitpack.io/#lingohub/android-cdn-sdk).
+
+To add the SDK to your project, update your `build.gradle` file:
 
 ```gradle
-dependencies {
-    implementation 'com.lingohub:sdk:latest.version'
+allprojects {
+    repositories {
+        maven { url 'https://jitpack.io' }
+    }
 }
-```
+
+dependencies {
+    implementation 'com.github.lingohub:android-cdn-sdk:latest.version'
+}
+
+Note: In the future, we plan to publish the SDK on Maven Central to simplify integration and follow standard distribution practices.
 
 ## Quick Start
 
