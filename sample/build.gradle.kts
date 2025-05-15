@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.lingohub"
+    namespace = "com.lingohub.android.cdn.example"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.lingohub"
+        applicationId = "com.lingohub.android.cdn.example"
         minSdk = 27
         targetSdk = 35
         versionCode = 1
