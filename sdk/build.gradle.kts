@@ -6,15 +6,9 @@ plugins {
     id("org.jetbrains.kotlin.plugin.parcelize")
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
-    id("maven-publish")  // This is built-in to Gradle
+    id("maven-publish")
     alias(libs.plugins.signing)
 }
-
-group = "com.lingohub.android.cdn"
-// Use version from version.properties file
-val versionProps = Properties()
-rootProject.file("version.properties").inputStream().use { versionProps.load(it) }
-version = versionProps.getProperty("VERSION_NAME") ?: "0.0.0"
 
 android {
     compileSdk = 34
@@ -28,8 +22,6 @@ android {
     defaultConfig {
         minSdk = 24
         targetSdk = 34
-        buildConfigField("int", "SDK_VERSION_CODE", "$version")
-        buildConfigField("String", "SDK_VERSION_NAME", "\"${version}\"")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }
@@ -106,6 +98,13 @@ afterEvaluate {
             create<MavenPublication>("release") {
                 from(components["release"])
 
+              groupId = "com.lingohub.android.cdn"
+              version = rootProject.file("version.properties").inputStream().use {
+                  val props = Properties()
+                  props.load(it)
+                  props.getProperty("VERSION_NAME") ?: "0.0.0"
+              }
+
               pom {
                 name.set("Lingohub Android CDN SDK")
                 description.set("A lightweight Android SDK that retrieves up-to-date translations from Lingohub, enabling real-time multilingual content delivery without requiring app updates.")
@@ -134,9 +133,6 @@ afterEvaluate {
             }
         }
       }
-    }
-    signing {
-      sign(publishing.publications["release"])
     }
 }
 

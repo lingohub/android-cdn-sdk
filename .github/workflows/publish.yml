@@ -38,3 +38,5 @@ jobs:
           ORG_GRADLE_PROJECT_signing.keyId: ${{ secrets.MAVEN_CENTRAL_SIGNING_KEY_ID }}
           ORG_GRADLE_PROJECT_signing.key: ${{ secrets.MAVEN_CENTRAL_SIGNING_KEY }}
           ORG_GRADLE_PROJECT_signing.password: ${{ secrets.MAVEN_CENTRAL_SIGNING_PASSWORD }}
+          SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+          SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
