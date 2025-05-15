@@ -1,17 +1,17 @@
 plugins {
-    alias(libs.plugins.android.application)
+    id("com.android.application")
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
 
 android {
     namespace = "com.lingohub.android.cdn.example"
-    compileSdk = 35
+    compileSdk = 34
 
     defaultConfig {
         applicationId = "com.lingohub.android.cdn.example"
         minSdk = 27
-        targetSdk = 35
+        targetSdk = 34
         versionCode = 1
         versionName = "3.2.1"
 
@@ -30,9 +30,6 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
