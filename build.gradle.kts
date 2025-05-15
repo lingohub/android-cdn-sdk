@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.maven.publish)
+    id("maven-publish")
     alias(libs.plugins.signing)
 }
 
@@ -31,12 +31,13 @@ android {
     }
 }
 
-publishing {
-    publications {
-        create<MavenPublication>("release") {
-            from(components["release"])
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                from(components["release"])
 
-            pom {
+              pom {
                 name.set("Lingohub Android CDN SDK")
                 description.set("A lightweight Android SDK that retrieves up-to-date translations from Lingohub, enabling real-time multilingual content delivery without requiring app updates.")
                 url.set("https://github.com/lingohub/android-cdn-sdk")
@@ -63,5 +64,6 @@ publishing {
                 }
             }
         }
+      }
     }
 }
