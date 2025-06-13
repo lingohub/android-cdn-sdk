@@ -1,5 +1,7 @@
 # Lingohub Android SDK
 
+[![License](https://img.shields.io/github/license/lingohub/upload-action?style=flat-square)](./LICENSE)
+
 The Lingohub Android SDK provides seamless integration of Lingohub's localization services into your Android applications. It supports both traditional XML-based resources and Jetpack Compose applications.
 
 ## Features
