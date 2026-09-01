@@ -13,7 +13,8 @@ fail() {
   exit 1
 }
 
-BUMP="${1:-}"
+[ $# -eq 1 ] || usage
+BUMP="$1"
 case "$BUMP" in
   major|minor|patch) ;;
   *) usage ;;
@@ -24,8 +25,12 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 [ -z "$(git status --porcelain)" ] || fail "working tree is not clean; commit or stash your changes first"
 
+git fetch --quiet --tags origin main || fail "could not fetch from origin; releases need up-to-date remote state"
+[ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || fail "local main is not in sync with origin/main; pull (or push) first"
+
 VERSION_FILE="version.properties"
 README_FILE="README.md"
+DEP_RE='com\.lingohub:android-cdn-sdk:[0-9A-Za-z.+-]*'
 
 VERSION=$(grep '^VERSION_NAME=' "$VERSION_FILE" | cut -d= -f2) || fail "could not read VERSION_NAME from $VERSION_FILE"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "unexpected VERSION_NAME '$VERSION' in $VERSION_FILE"
@@ -44,15 +49,30 @@ if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
   fail "tag '$TAG' already exists"
 fi
 
-grep -qF 'com.lingohub:android-cdn-sdk:' "$README_FILE" || fail "no dependency snippet found in $README_FILE"
+# Both dependency snippets (Kotlin and Groovy DSL) must exist and carry the
+# expected version, otherwise the docs have drifted and need a manual fix.
+check_readme_snippets() {
+  local expected="com.lingohub:android-cdn-sdk:$1"
+  local found count snippet
+  found=$(grep -oE "$DEP_RE" "$README_FILE" || true)
+  count=$(printf '%s\n' "$found" | grep -c .) || true
+  [ "$count" -eq 2 ] || fail "expected exactly 2 dependency snippets in $README_FILE, found $count"
+  while IFS= read -r snippet; do
+    [ "$snippet" = "$expected" ] || fail "$README_FILE snippet '$snippet' does not match expected '$expected'"
+  done <<< "$found"
+}
+
+check_readme_snippets "$VERSION"
 
 echo "VERSION_NAME=$NEW_VERSION" > "$VERSION_FILE"
-sed "s#com\.lingohub:android-cdn-sdk:[0-9A-Za-z.+-]*#com.lingohub:android-cdn-sdk:$NEW_VERSION#g" "$README_FILE" > "$README_FILE.tmp"
+sed "s#$DEP_RE#com.lingohub:android-cdn-sdk:$NEW_VERSION#g" "$README_FILE" > "$README_FILE.tmp"
 mv "$README_FILE.tmp" "$README_FILE"
+
+check_readme_snippets "$NEW_VERSION"
 
 git add "$VERSION_FILE" "$README_FILE"
 git commit -m "Bump version to $NEW_VERSION"
 git tag "$TAG"
-git push origin main "refs/tags/$TAG"
+git push --atomic origin main "refs/tags/$TAG"
 
 echo "Released $NEW_VERSION: pushed release commit and tag $TAG to origin."

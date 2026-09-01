@@ -43,7 +43,12 @@ publish or drop it there.
    ./bump-version.sh minor   # or: patch | major
    ```
 
-   This updates `version.properties`, commits, tags `vX.Y.Z`, and pushes.
+   This checks that you are on a clean `main` in sync with `origin` and that
+   the target tag does not exist yet, updates `version.properties` and the two
+   README dependency snippets, commits, tags `vX.Y.Z`, and pushes the commit
+   and tag in one atomic push. The script is covered by
+   `scripts/test-bump-version.sh`, which CI runs against a throwaway local
+   repository.
 3. Create a GitHub release from that tag (the tag alone does **not** publish).
    Publishing starts when the release is *published*.
 4. The `Publish to Maven Central` workflow builds, signs, uploads, and releases
