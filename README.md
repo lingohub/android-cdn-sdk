@@ -317,9 +317,9 @@ No configuration needed — the SDK ships its consumer rules inside the AAR.
 
 What the SDK touches on the device and network — relevant for your Play Console *Data safety* declaration:
 
-* `SharedPreferences` — stores the installed release ID and app version.
+* `SharedPreferences` — stores the installed release ID, app version, and the SDK's client identifier.
 * Downloaded translation bundles — stored in the app's internal files directory.
-* Each update check sends to the LingoHub CDN: your app's version name, the current app language, the SDK version, and the device's [`ANDROID_ID`](https://developer.android.com/reference/android/provider/Settings.Secure#ANDROID_ID) as the client identifier for usage metering. `ANDROID_ID` is a stable device identifier (scoped to app signing key, user, and device on API 26+), so declare it under **Device or other IDs** in your Play Console *Data safety* form.
+* Each update check sends to the LingoHub CDN: your app's version name, the current app language, the SDK version, and a random per-install identifier (a UUID generated on first launch and kept in the SDK's private `SharedPreferences`) as the client identifier for usage metering. The identifier is not derived from any hardware or device ID, cannot be correlated across apps, and resets when the app is uninstalled or its data is cleared. In your Play Console *Data safety* form it falls under **Device or other IDs** (the same category as app-generated identifiers like a Firebase installation ID). No hardware identifier such as `ANDROID_ID` is read or transmitted.
 
 ## Sample app
 

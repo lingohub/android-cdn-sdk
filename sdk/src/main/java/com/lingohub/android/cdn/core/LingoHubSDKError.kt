@@ -15,5 +15,6 @@ import androidx.annotation.Keep
 class LingoHubSDKError @JvmOverloads constructor(
     message: String,
     val statusCode: Int? = null,
-    val errorCodes: List<String> = emptyList()
-) : IllegalStateException(message)
+    val errorCodes: List<String> = emptyList(),
+    cause: Throwable? = null
+) : IllegalStateException(message, cause)

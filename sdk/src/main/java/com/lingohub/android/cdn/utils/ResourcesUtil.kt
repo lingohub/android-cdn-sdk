@@ -61,13 +61,14 @@ internal class ResourcesUtil(
             return super.getString(id, *formatArgs)
         }
 
-        val string = repository.getText(resourceKey)?.toString()
+        val template = repository.getText(resourceKey)?.toString()
         LingoHubLogger.logger.onDebug(
-            "$TAG, getString: key=$resourceKey, translation=$string, args=${formatArgs.joinToString()}"
+            "$TAG, getString: key=$resourceKey, translation=$template, args=${formatArgs.joinToString()}"
         )
 
-        val baseString = string ?: super.getString(id, *formatArgs)
-        val result = String.format(currentLocale(), baseString, *formatArgs)
+        val result = formatTranslation(currentLocale(), template, formatArgs) {
+            super.getString(id, *formatArgs)
+        }
         LingoHub.stringRequested(resourceKey, result)
         return result
     }
@@ -135,6 +136,26 @@ internal class ResourcesUtil(
 
     companion object {
         private const val TAG = "ResourcesUtil"
+    }
+}
+
+/**
+ * OTA translations are raw format templates and need exactly one
+ * String.format pass. Android's Resources.getString(id, *args) fallback is
+ * already formatted, so it must be returned untouched: formatting it a second
+ * time corrupts the output and crashes on literal '%' characters (e.g. a
+ * resource using the documented "%%" escape, or an argument like "50% off").
+ */
+internal inline fun formatTranslation(
+    locale: Locale,
+    template: String?,
+    args: Array<out Any>,
+    alreadyFormattedFallback: () -> String
+): String {
+    return if (template != null) {
+        String.format(locale, template, *args)
+    } else {
+        alreadyFormattedFallback()
     }
 }
 

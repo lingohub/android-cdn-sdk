@@ -1,11 +1,9 @@
 package com.lingohub.android.cdn.data.model
 
 import androidx.annotation.Keep
-import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 
 @Keep
-@OptIn(InternalSerializationApi::class)
 @Serializable
 internal data class Item(
     val key: String,
@@ -17,4 +15,5 @@ internal data class Item(
 
 
 internal fun Item.isText() = type == "TEXT"
+internal fun Item.isPlural() = type == "PLURAL"
 internal fun Item.isArray() = type == "ARRAY"

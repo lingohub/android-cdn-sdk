@@ -17,8 +17,10 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
+import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
 abstract class BaseContextTest {
@@ -27,7 +29,8 @@ abstract class BaseContextTest {
     val packageInfo: PackageInfo = mock()
     val baseResources: Resources = mock()
     private var configuration: Configuration = createConfiguration()
-    private val sharedPreferences: SharedPreferences = mock()
+    val sharedPreferences: SharedPreferences = mock()
+    val sharedPreferencesEditor: SharedPreferences.Editor = mock()
 
     private val testDispatcher: TestDispatcher = UnconfinedTestDispatcher()
 
@@ -38,9 +41,13 @@ abstract class BaseContextTest {
 
         whenever(baseContext.packageManager).thenReturn(packageManger)
         whenever(baseContext.packageName).thenReturn("")
+        whenever(baseContext.filesDir).thenReturn(File(System.getProperty("java.io.tmpdir"), "lingohub-test-files"))
         whenever(baseContext.resources).thenReturn(baseResources)
         whenever(baseResources.configuration).thenReturn(configuration)
         whenever(baseContext.getSharedPreferences(any(), any())).thenReturn(sharedPreferences)
+        whenever(sharedPreferences.edit()).thenReturn(sharedPreferencesEditor)
+        whenever(sharedPreferencesEditor.putString(any(), anyOrNull())).thenReturn(sharedPreferencesEditor)
+        whenever(sharedPreferencesEditor.remove(any())).thenReturn(sharedPreferencesEditor)
         whenever(packageManger.getPackageInfo("", 0)).thenReturn(packageInfo)
         whenever(packageInfo.longVersionCode).thenReturn(0L)
         packageInfo.versionName = ""

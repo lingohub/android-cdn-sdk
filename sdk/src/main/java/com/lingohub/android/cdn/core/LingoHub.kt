@@ -1,13 +1,10 @@
 package com.lingohub.android.cdn.core
 
-import android.annotation.SuppressLint
 import android.content.Context
-import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.annotation.Keep
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.app.ViewPumpAppCompatDelegate
-import androidx.core.os.ConfigurationCompat
 import com.lingohub.android.cdn.data.model.BundleInfo
 import com.lingohub.android.cdn.data.model.BundleMetadata
 import com.lingohub.android.cdn.data.model.Environment
@@ -26,32 +23,39 @@ import com.lingohub.android.cdn.data.Preferences
 import com.lingohub.android.cdn.data.Repository
 import com.lingohub.android.cdn.data.Updater
 import dev.b3nedikt.viewpump.ViewPump
-import java.io.File
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.*
 
 @Keep
 object LingoHub {
 
     internal var apiKey: String? = null
-    internal lateinit var appVersionCode: String
+    internal lateinit var appVersionName: String
     internal lateinit var packageName: String
     internal lateinit var api: Api
     internal lateinit var updater: Updater
     internal lateinit var preferences: IPreferences
-    internal lateinit var languages: String
-    internal lateinit var deviceId: String
+
+    // Random per-install identifier sent as clientUser for usage metering.
+    // Deliberately not a hardware identifier: it is app-scoped, cannot be
+    // correlated across apps, and resets on uninstall/clear-data.
+    internal lateinit var clientId: String
     internal lateinit var fileHelper: IFileHelper
     internal lateinit var environment: Environment
-    private lateinit var outputDirectory: File
     private lateinit var bundleHelper: BundleHelper
 
     private val repositoryMap = mutableMapOf<Locale, IRepository>()
     private val emptyRepository: IRepository = object : IRepository {}
 
+    // Serializes every bundle state transition (app-version purge, initial
+    // refresh, install + refresh after an update) so their disk operations
+    // cannot interleave and an older snapshot can never be published last.
+    internal val bundleTransitionLock = Mutex()
+
     // Add UpdateManager instance
     private val updateManager by lazy { UpdateManager.getInstance() }
 
-    @SuppressLint("HardwareIds")
     @Keep
     @JvmStatic
     fun configure(
@@ -64,30 +68,26 @@ object LingoHub {
         SnapKitHelper.enableIfTest()
         this.environment = environment ?: Environment.PRODUCTION
         this.apiKey = apiKey
-        this.deviceId =
-            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: ""
+        this.preferences = Preferences(context)
+        this.clientId = preferences.getClientId()
+            ?: UUID.randomUUID().toString().also { preferences.saveClientId(it) }
         packageName = context.packageName
         val packageInfo = context.packageManager.getPackageInfo(packageName, 0)
-        appVersionCode = packageInfo.versionName.toString()
-        readDeviceLocales(context)
+        appVersionName = packageInfo.versionName.toString()
 
-        outputDirectory = File(context.filesDir, "lingohub").apply {
-            mkdirs()
-        }
-
-        fileHelper = FileHelper(outputDirectory)
+        fileHelper = FileHelper(context.filesDir)
 
         this.api = Api.Companion.build()
-        this.preferences = Preferences(context)
         this.updater = Updater(LingoHubScope())
 
         ViewPump.init(InflationInterceptor)
 
-        checkIfUpdated()
-
-
-        bundleHelper = BundleHelper().also {
-            it.refresh()
+        bundleHelper = BundleHelper()
+        updater.scope.launch {
+            bundleTransitionLock.withLock {
+                purgeBundleOnAppUpdate()
+                bundleHelper.refresh()
+            }
         }
     }
 
@@ -139,36 +139,37 @@ object LingoHub {
         }
     }
 
-    internal fun onBundleUpdated(bundleInfo: BundleInfo) {
+    internal suspend fun onBundleUpdated(bundleInfo: BundleInfo) {
+        // Await the disk read before clearing caches and notifying listeners:
+        // otherwise a listener-triggered lookup can rebuild (and cache) a
+        // repository from the previous in-memory bundle.
         bundleHelper.refresh()
         clearRepositories()
 
-        val metaData = BundleMetadata(bundleInfo.id, appVersionCode)
+        val metaData = BundleMetadata(bundleInfo.id, appVersionName)
         LingoHubLogger.logger.onDebug("saving bundle meta: $metaData")
         preferences.saveBundleMetadata(metaData)
         LingoHubLogger.logger.onInfo("downloaded new bundle with id: ${bundleInfo.id}")
 
-        // Notify listeners that data has changed
         updateManager.notifyDataChanged()
     }
 
-    internal fun checkIfUpdated() {
+    internal suspend fun purgeBundleOnAppUpdate() {
         val savedMetadata = preferences.getBundleMetadata()
-        val bundleAppVersion = savedMetadata?.appVersion?.toString()
-        val currentAppVersion = appVersionCode.toString()
+        val bundleAppVersion = savedMetadata?.appVersion
+        val currentAppVersion = appVersionName
 
         LingoHubLogger
             .logger.onInfo("checking metadata $savedMetadata")
         if (bundleAppVersion != null && bundleAppVersion != currentAppVersion) {
             LingoHubLogger.logger.onInfo("bundle update required due to app version change $bundleAppVersion to $currentAppVersion")
             LingoHubLogger.logger.onInfo("app has been updated to $currentAppVersion, clearing local bundle (for app version $bundleAppVersion)")
+            // Clear the metadata before the first suspension point so an
+            // update started right after configure() reports no stale
+            // clientRelease to the server.
             preferences.clearBundleMetadata()
-            updater.scope.launch { fileHelper.deleteBundle() }
+            fileHelper.deleteBundle()
         }
-    }
-
-    private fun readDeviceLocales(context: Context) {
-        languages = ConfigurationCompat.getLocales(context.resources.configuration).toLanguageTags()
     }
 
     internal fun getRepository(locale: Locale): IRepository {

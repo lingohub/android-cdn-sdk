@@ -20,13 +20,15 @@ internal class UpdateManager {
 
     internal fun notifyDataChanged() {
         scope.launch {
-            lingohubUpdateListeners.forEach { it.onUpdate() }
+            // Iterate a snapshot so a listener removing itself in its callback
+            // does not trigger a ConcurrentModificationException.
+            lingohubUpdateListeners.toList().forEach { it.onUpdate() }
         }
     }
 
     internal fun notifyFailure(throwable: Throwable) {
         scope.launch {
-            lingohubUpdateListeners.forEach { it.onFailure(throwable) }
+            lingohubUpdateListeners.toList().forEach { it.onFailure(throwable) }
         }
     }
 

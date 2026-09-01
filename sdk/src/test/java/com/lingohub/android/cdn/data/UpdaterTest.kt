@@ -11,8 +11,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -25,6 +27,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.inOrder
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.times
@@ -57,13 +60,14 @@ class UpdaterTest : BaseContextTest() {
         val mockedBundle = getMockedBundleInfo()
         runTest {
             whenever(api.getBundleInfo()).thenReturn(mockedBundle)
+            whenever(api.downloadBundle(any())).thenReturn("test".toResponseBody())
             LingoHub.update()
             verify(api, times(1)).downloadBundle(mockedBundle.body()!!.filesUrl)
         }
     }
 
     @Test
-    fun `Unzip called after bundle downloaded`() {
+    fun `Bundle installed after download`() {
         val downloadResponse = "test".toResponseBody()
         val mockedBundle = getMockedBundleInfo()
 
@@ -71,8 +75,60 @@ class UpdaterTest : BaseContextTest() {
             whenever(api.getBundleInfo()).thenReturn(mockedBundle)
             whenever(api.downloadBundle(any())).thenReturn(downloadResponse)
             LingoHub.updater.update()
-            verify(fileHelper, times(1)).unzipBundle(any())
+            verify(fileHelper, times(1)).installBundle(any())
         }
+    }
+
+    @Test
+    fun `Listeners are notified only after the refreshed bundle was read from disk`() {
+        val listener: LingoHubUpdateListener = mock()
+        LingoHub.addUpdateListener(listener)
+        runTest {
+            whenever(api.getBundleInfo()).thenReturn(getMockedBundleInfo())
+            whenever(api.downloadBundle(any())).thenReturn("test".toResponseBody())
+            LingoHub.update()
+
+            val order = inOrder(fileHelper, listener)
+            order.verify(fileHelper).installBundle(any())
+            order.verify(fileHelper).readBundle()
+            order.verify(listener).onUpdate()
+        }
+        LingoHub.removeUpdateListener(listener)
+    }
+
+    @Test
+    fun `Concurrent update calls are single-flight`() = runTest {
+        whenever(api.getBundleInfo()).thenReturn(getMockedBundleInfo())
+        whenever(api.downloadBundle(any())).thenReturn("test".toResponseBody())
+        val updater = Updater(QueueingCoroutineScope(this))
+
+        updater.update()
+        updater.update()
+        advanceUntilIdle()
+
+        verify(api, times(1)).getBundleInfo()
+
+        // Once the first update finished, the guard is released again.
+        updater.update()
+        advanceUntilIdle()
+        verify(api, times(2)).getBundleInfo()
+    }
+
+    @Test
+    fun `Non-HTTPS bundle url is rejected without downloading`() {
+        val listener: LingoHubUpdateListener = mock()
+        LingoHub.addUpdateListener(listener)
+        runTest {
+            whenever(api.getBundleInfo()).thenReturn(
+                Response.success(getBundleInfo(filesUrl = "http://cdn.lingohub.com/bundles/test.zip"))
+            )
+            LingoHub.update()
+            verify(api, never()).downloadBundle(any())
+            val captor = argumentCaptor<Throwable>()
+            verify(listener).onFailure(captor.capture())
+            assertTrue(captor.firstValue.message!!.contains("non-HTTPS"))
+        }
+        LingoHub.removeUpdateListener(listener)
     }
 
     @Test
@@ -128,9 +184,9 @@ class UpdaterTest : BaseContextTest() {
     @Test
     fun `Bundle not deleted when app not updated`() {
         whenever(preferences.getBundleMetadata()).thenReturn(BundleMetadata("identifier", "4"))
-        LingoHub.appVersionCode = "4"
+        LingoHub.appVersionName = "4"
         runTest {
-            LingoHub.checkIfUpdated()
+            LingoHub.purgeBundleOnAppUpdate()
             verify(fileHelper, never()).deleteBundle()
         }
     }
@@ -138,9 +194,10 @@ class UpdaterTest : BaseContextTest() {
     @Test
     fun `Bundle deleted on app update`() {
         whenever(preferences.getBundleMetadata()).thenReturn(BundleMetadata("identifier", "19"))
-        LingoHub.appVersionCode = "20"
+        LingoHub.appVersionName = "20"
         runTest {
-            LingoHub.checkIfUpdated()
+            LingoHub.purgeBundleOnAppUpdate()
+            verify(preferences, times(1)).clearBundleMetadata()
             verify(fileHelper, times(1)).deleteBundle()
         }
     }
@@ -151,12 +208,16 @@ class UpdaterTest : BaseContextTest() {
     }
 
     private fun getMockedBundleInfo(): Response<BundleInfo> {
-        return Response.success(BundleInfo(
+        return Response.success(getBundleInfo())
+    }
+
+    private fun getBundleInfo(filesUrl: String = "https://cdn.lingohub.com/bundles/test.zip"): BundleInfo {
+        return BundleInfo(
             id = "123123",
             createdAt = "2022-01-01T00:00:00.000Z",
             name = "Version 1",
-            filesUrl = "url",
-        ))
+            filesUrl = filesUrl,
+        )
     }
 }
 
@@ -171,5 +232,18 @@ private class BlockingCoroutineScope : ICoroutineScope {
             block()
             Job()
         }
+    }
+}
+
+/**
+ * Launches into the given scope (e.g. runTest's TestScope with a
+ * StandardTestDispatcher) so launched work queues until the test advances the
+ * dispatcher - required to observe two update() calls overlapping.
+ */
+private class QueueingCoroutineScope(private val delegate: CoroutineScope) : ICoroutineScope {
+    override val coroutineContext: CoroutineContext = delegate.coroutineContext
+
+    override fun launch(block: suspend CoroutineScope.() -> Unit): Job {
+        return delegate.launch { block() }
     }
 }

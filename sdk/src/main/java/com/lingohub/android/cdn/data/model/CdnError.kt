@@ -1,7 +1,6 @@
 package com.lingohub.android.cdn.data.model
 
 import androidx.annotation.Keep
-import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 
 /**
@@ -10,7 +9,6 @@ import kotlinx.serialization.Serializable
  */
 @Keep
 @Serializable
-@OptIn(InternalSerializationApi::class)
 internal data class CdnErrorResponse(
     val type: String? = null,
     val status: Int? = null,
@@ -22,7 +20,6 @@ internal data class CdnErrorResponse(
 
 @Keep
 @Serializable
-@OptIn(InternalSerializationApi::class)
 internal data class CdnErrorDetail(
     val field: String? = null,
     val infos: List<String> = emptyList()
