@@ -15,11 +15,14 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.times
@@ -79,6 +82,40 @@ class UpdaterTest : BaseContextTest() {
             Lingohub.update()
             verify(api, never()).downloadBundle(any())
             verify(listener, never()).onFailure(any())
+        }
+        Lingohub.removeUpdateListener(listener)
+    }
+
+    @Test
+    fun `404 distribution not found is treated as no update, not failure`() {
+        val listener: LingohubUpdateListener = mock()
+        Lingohub.addUpdateListener(listener)
+        runTest {
+            val body =
+                """{"type":"about:blank","status":404,"detail":"Not Found","errors":[{"field":"DISTRIBUTION","infos":["DISTRIBUTION_NOT_FOUND"]}]}"""
+                    .toResponseBody("application/json".toMediaType())
+            whenever(api.getBundleInfo()).thenReturn(Response.error(404, body))
+            Lingohub.update()
+            verify(api, never()).downloadBundle(any())
+            verify(listener, never()).onFailure(any())
+        }
+        Lingohub.removeUpdateListener(listener)
+    }
+
+    @Test
+    fun `429 usage limit exceeded notifies a specific failure`() {
+        val listener: LingohubUpdateListener = mock()
+        Lingohub.addUpdateListener(listener)
+        runTest {
+            val body =
+                """{"type":"about:blank","status":429,"detail":"Too Many Requests","errors":[{"field":"USAGE","infos":["USAGE_LIMIT_EXCEEDED"]}]}"""
+                    .toResponseBody("application/json".toMediaType())
+            whenever(api.getBundleInfo()).thenReturn(Response.error(429, body))
+            Lingohub.update()
+            verify(api, never()).downloadBundle(any())
+            val captor = argumentCaptor<Throwable>()
+            verify(listener).onFailure(captor.capture())
+            assertTrue(captor.firstValue.message!!.contains("usage limit", ignoreCase = true))
         }
         Lingohub.removeUpdateListener(listener)
     }
