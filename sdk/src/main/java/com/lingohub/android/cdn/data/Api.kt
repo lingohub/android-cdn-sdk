@@ -33,7 +33,7 @@ internal interface Api {
 
     companion object {
         fun build(): Api {
-            val client by lazy {
+            val client = run {
                 val loggingInterceptor =
                     HttpLoggingInterceptor { message -> LingoHubLogger.logger.onDebug(message) }
 
@@ -45,6 +45,8 @@ internal interface Api {
                         HttpLoggingInterceptor.Level.NONE
                     }
                 )
+                // The bearer key must never end up in logcat, even at FULL.
+                loggingInterceptor.redactHeader("Authorization")
                 OkHttpClient.Builder()
                     .addInterceptor(Interceptor { chain ->
                         val request = chain.request()

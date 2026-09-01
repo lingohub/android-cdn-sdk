@@ -1,13 +1,11 @@
 package com.lingohub.android.cdn.data.model
 
 import androidx.annotation.Keep
-import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
 
 @Keep
 @Serializable
-@OptIn(InternalSerializationApi::class)
 internal data class BundleInfo(
     @SerialName("distributionReleaseId")
     val id: String,

@@ -2,7 +2,6 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.maven.publish)
 }
@@ -49,12 +48,15 @@ android {
 }
 
 dependencies {
-    implementation(libs.androidx.appcompat)
+    // AppCompat types (AppCompatDelegate, ComponentActivity) appear in the
+    // public API, so consumers need it on their compile classpath.
+    api(libs.androidx.appcompat)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
 
-    api(libs.viewpump)
+    // ViewPump is an implementation detail; no public signature exposes it.
+    implementation(libs.viewpump)
 
     implementation(libs.okhttp)
     implementation(libs.retrofit)

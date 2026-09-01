@@ -11,23 +11,32 @@ internal interface IRepository {
     fun getTextArray(key: String): Array<CharSequence>? = null
 }
 
-internal class Repository(private val bundle: Bundle) : IRepository {
+internal class Repository(bundle: Bundle) : IRepository {
+    // Lookups run during view inflation and rendering, so index the bundle
+    // once instead of scanning the item list on every resource access.
+    // First occurrence of a key wins, matching the previous find() behavior.
+    private val textByKey: Map<String, String> = buildMap {
+        bundle.items.forEach { item ->
+            if (item.isText()) item.value?.let { putIfAbsent(item.key, it) }
+        }
+    }
+    private val arrayByKey: Map<String, List<String>> = buildMap {
+        bundle.items.forEach { item ->
+            if (item.isArray()) item.valueArray?.let { putIfAbsent(item.key, it) }
+        }
+    }
+
     override fun getText(key: String): CharSequence? {
         LingoHubLogger.logger.onDebug("loading string: '$key'")
-        return findString(key)
+        return textByKey[key]
     }
 
     override fun getPlural(key: String, quantityString: String): CharSequence? {
         val pluralKey = "${key}_$quantityString"
         LingoHubLogger.logger.onDebug("loading plural '$pluralKey'")
-        return findString(pluralKey)
+        return textByKey[pluralKey]
     }
 
-    override fun getTextArray(key: String): Array<CharSequence>? {
-        return findArray(key)
-    }
-
-    private fun findString(key: String): String? = bundle.items.filter { it.isText() }.find { it.key == key }?.value
-
-    private fun findArray(key: String): Array<CharSequence>? = bundle.items.filter { it.isArray() }.find { it.key == key }?.valueArray?.toTypedArray()
+    override fun getTextArray(key: String): Array<CharSequence>? =
+        arrayByKey[key]?.toTypedArray()
 }

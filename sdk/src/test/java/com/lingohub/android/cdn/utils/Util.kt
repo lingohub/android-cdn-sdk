@@ -40,7 +40,7 @@ internal fun createRepository(nameId: String, quantity: String? = null, text: Ch
         override fun getText(key: String) = text.takeIf { key == nameId }
 
         override fun getPlural(key: String, quantityString: String): CharSequence? {
-            return text.takeIf { key == nameId && quantity == quantity }
+            return text.takeIf { key == nameId && quantity == quantityString }
         }
 
         override fun getTextArray(key: String) = textArray.takeIf { key == nameId }

@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
+import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
 abstract class BaseContextTest {
@@ -38,6 +39,7 @@ abstract class BaseContextTest {
 
         whenever(baseContext.packageManager).thenReturn(packageManger)
         whenever(baseContext.packageName).thenReturn("")
+        whenever(baseContext.filesDir).thenReturn(File(System.getProperty("java.io.tmpdir"), "lingohub-test-files"))
         whenever(baseContext.resources).thenReturn(baseResources)
         whenever(baseResources.configuration).thenReturn(configuration)
         whenever(baseContext.getSharedPreferences(any(), any())).thenReturn(sharedPreferences)

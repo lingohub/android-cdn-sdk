@@ -7,7 +7,6 @@ import androidx.activity.ComponentActivity
 import androidx.annotation.Keep
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.app.ViewPumpAppCompatDelegate
-import androidx.core.os.ConfigurationCompat
 import com.lingohub.android.cdn.data.model.BundleInfo
 import com.lingohub.android.cdn.data.model.BundleMetadata
 import com.lingohub.android.cdn.data.model.Environment
@@ -26,23 +25,20 @@ import com.lingohub.android.cdn.data.Preferences
 import com.lingohub.android.cdn.data.Repository
 import com.lingohub.android.cdn.data.Updater
 import dev.b3nedikt.viewpump.ViewPump
-import java.io.File
 import java.util.*
 
 @Keep
 object LingoHub {
 
     internal var apiKey: String? = null
-    internal lateinit var appVersionCode: String
+    internal lateinit var appVersionName: String
     internal lateinit var packageName: String
     internal lateinit var api: Api
     internal lateinit var updater: Updater
     internal lateinit var preferences: IPreferences
-    internal lateinit var languages: String
     internal lateinit var deviceId: String
     internal lateinit var fileHelper: IFileHelper
     internal lateinit var environment: Environment
-    private lateinit var outputDirectory: File
     private lateinit var bundleHelper: BundleHelper
 
     private val repositoryMap = mutableMapOf<Locale, IRepository>()
@@ -68,14 +64,9 @@ object LingoHub {
             Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: ""
         packageName = context.packageName
         val packageInfo = context.packageManager.getPackageInfo(packageName, 0)
-        appVersionCode = packageInfo.versionName.toString()
-        readDeviceLocales(context)
+        appVersionName = packageInfo.versionName.toString()
 
-        outputDirectory = File(context.filesDir, "lingohub").apply {
-            mkdirs()
-        }
-
-        fileHelper = FileHelper(outputDirectory)
+        fileHelper = FileHelper(context.filesDir)
 
         this.api = Api.Companion.build()
         this.preferences = Preferences(context)
@@ -85,10 +76,8 @@ object LingoHub {
 
         checkIfUpdated()
 
-
-        bundleHelper = BundleHelper().also {
-            it.refresh()
-        }
+        bundleHelper = BundleHelper()
+        updater.scope.launch { bundleHelper.refresh() }
     }
 
     @Keep
@@ -139,23 +128,25 @@ object LingoHub {
         }
     }
 
-    internal fun onBundleUpdated(bundleInfo: BundleInfo) {
+    internal suspend fun onBundleUpdated(bundleInfo: BundleInfo) {
+        // Await the disk read before clearing caches and notifying listeners:
+        // otherwise a listener-triggered lookup can rebuild (and cache) a
+        // repository from the previous in-memory bundle.
         bundleHelper.refresh()
         clearRepositories()
 
-        val metaData = BundleMetadata(bundleInfo.id, appVersionCode)
+        val metaData = BundleMetadata(bundleInfo.id, appVersionName)
         LingoHubLogger.logger.onDebug("saving bundle meta: $metaData")
         preferences.saveBundleMetadata(metaData)
         LingoHubLogger.logger.onInfo("downloaded new bundle with id: ${bundleInfo.id}")
 
-        // Notify listeners that data has changed
         updateManager.notifyDataChanged()
     }
 
     internal fun checkIfUpdated() {
         val savedMetadata = preferences.getBundleMetadata()
-        val bundleAppVersion = savedMetadata?.appVersion?.toString()
-        val currentAppVersion = appVersionCode.toString()
+        val bundleAppVersion = savedMetadata?.appVersion
+        val currentAppVersion = appVersionName
 
         LingoHubLogger
             .logger.onInfo("checking metadata $savedMetadata")
@@ -165,10 +156,6 @@ object LingoHub {
             preferences.clearBundleMetadata()
             updater.scope.launch { fileHelper.deleteBundle() }
         }
-    }
-
-    private fun readDeviceLocales(context: Context) {
-        languages = ConfigurationCompat.getLocales(context.resources.configuration).toLanguageTags()
     }
 
     internal fun getRepository(locale: Locale): IRepository {

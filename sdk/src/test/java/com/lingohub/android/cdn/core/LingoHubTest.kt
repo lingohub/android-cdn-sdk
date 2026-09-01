@@ -26,7 +26,6 @@ class LingoHubTest: BaseContextTest() {
         verify(baseContext).contentResolver
         verify(baseContext).packageName
         verify(baseContext).packageManager
-        verify(baseContext).resources
         verify(baseContext).filesDir
         verify(baseContext).getSharedPreferences("Lingohub", 0)
 
