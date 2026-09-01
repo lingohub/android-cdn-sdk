@@ -15,9 +15,14 @@ internal class Updater(val scope: ICoroutineScope = LingohubScope()) {
                 val bundleInfoResponse = api.getBundleInfo()
                 val responseCode = bundleInfoResponse.code()
 
+                // 204 is the CDN's regular "already up to date" answer, not an error.
+                if (responseCode == 204) {
+                    LingohubLogger.logger.onInfo("translations are up to date, no new bundle available")
+                    return@launch
+                }
+
                 if (responseCode != 200) {
                     val error = when (responseCode) {
-                        204 -> LingohubSDKError("No new Lingohub package available")
                         400 -> LingohubSDKError("Error loading Lingohub package: invalid request, check apiKey")
                         401 -> LingohubSDKError("Error loading Lingohub package: Not Authorized")
                         404 -> LingohubSDKError("Error loading Lingohub package: project not found")

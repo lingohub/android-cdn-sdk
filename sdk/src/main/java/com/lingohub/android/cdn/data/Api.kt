@@ -3,6 +3,7 @@ package com.lingohub.android.cdn.data
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.lingohub.android.cdn.core.Lingohub
 import com.lingohub.android.cdn.data.model.BundleInfo
+import com.lingohub.android.cdn.utils.LingohubLogLevel
 import com.lingohub.android.cdn.utils.LingohubLogger
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
@@ -36,7 +37,14 @@ internal interface Api {
                 val loggingInterceptor =
                     HttpLoggingInterceptor { message -> LingohubLogger.logger.onDebug(message) }
 
-                loggingInterceptor.setLevel(HttpLoggingInterceptor.Level.BODY)
+                // Only pay the body-buffering cost when logging is actually enabled.
+                loggingInterceptor.setLevel(
+                    if (LingohubLogger.logLevel == LingohubLogLevel.FULL) {
+                        HttpLoggingInterceptor.Level.BODY
+                    } else {
+                        HttpLoggingInterceptor.Level.NONE
+                    }
+                )
                 OkHttpClient.Builder()
                     .addInterceptor(Interceptor { chain ->
                         val request = chain.request()

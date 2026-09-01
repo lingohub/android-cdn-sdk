@@ -2,6 +2,7 @@ package com.lingohub.android.cdn.data
 
 import com.lingohub.android.cdn.core.BaseContextTest
 import com.lingohub.android.cdn.core.Lingohub
+import com.lingohub.android.cdn.core.LingohubUpdateListener
 import com.lingohub.android.cdn.data.model.BundleInfo
 import com.lingohub.android.cdn.data.model.BundleMetadata
 import com.lingohub.android.cdn.utils.configureLingohub
@@ -67,6 +68,19 @@ class UpdaterTest : BaseContextTest() {
             Lingohub.updater.update()
             verify(fileHelper, times(1)).unzipBundle(any())
         }
+    }
+
+    @Test
+    fun `204 response means up to date and is not reported as failure`() {
+        val listener: LingohubUpdateListener = mock()
+        Lingohub.addUpdateListener(listener)
+        runTest {
+            whenever(api.getBundleInfo()).thenReturn(Response.success(204, null as BundleInfo?))
+            Lingohub.update()
+            verify(api, never()).downloadBundle(any())
+            verify(listener, never()).onFailure(any())
+        }
+        Lingohub.removeUpdateListener(listener)
     }
 
     @Test
