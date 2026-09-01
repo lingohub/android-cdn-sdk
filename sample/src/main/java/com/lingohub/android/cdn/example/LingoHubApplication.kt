@@ -13,12 +13,14 @@ class LingoHubApplication : Application() {
         super.onCreate()
         cacheManager = CacheManager(this)
 
-        // Configure LingoHub with your project credentials
+        // Configure LingoHub with your project credentials.
+        // The demo distribution ("Wanderly CDN Demo") lives in the DEVELOPMENT
+        // environment - the environment must match the published release.
         LingoHub.configure(
             context = this,
             apiKey = "YOUR_API_KEY",
-            environment = Environment.PRODUCTION,
-            logLevel = LingoHubLogLevel.NONE
+            environment = Environment.DEVELOPMENT,
+            logLevel = if (BuildConfig.DEBUG) LingoHubLogLevel.FULL else LingoHubLogLevel.NONE
         )
 
         if (cacheManager.shouldFetchStrings()) {
