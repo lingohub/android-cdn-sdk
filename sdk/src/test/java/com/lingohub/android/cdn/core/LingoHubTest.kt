@@ -28,7 +28,7 @@ class LingoHubTest: BaseContextTest() {
         verify(baseContext).packageManager
         verify(baseContext).resources
         verify(baseContext).filesDir
-        verify(baseContext).getSharedPreferences("LingoHub", 0)
+        verify(baseContext).getSharedPreferences("Lingohub", 0)
 
         assert(LingoHub.apiKey == "test-api-key")
         assert(LingoHub.environment == Environment.PRODUCTION)
