@@ -7,7 +7,7 @@ appcompat = "1.8.0"
 coreKtx = "1.19.0"
 kotlinxCoroutines = "1.11.0"
 kotlinxSerializationJson = "1.11.0"
-okhttp = "5.1.0"
+okhttp = "5.4.0"
 retrofit = "3.0.0"
 viewpump = "4.0.10"
 
