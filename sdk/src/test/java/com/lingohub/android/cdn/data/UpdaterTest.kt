@@ -15,14 +15,15 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import okhttp3.ResponseBody.Companion.toResponseBody
-import org.amshove.kluent.*
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.any
+import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 import retrofit2.Response
 import kotlin.coroutines.CoroutineContext
 
@@ -49,7 +50,7 @@ class UpdaterTest : BaseContextTest() {
     fun `Download api call invoked upon receiving bundleInfo`() {
         val mockedBundle = getMockedBundleInfo()
         runTest {
-            When calling api.getBundleInfo() doReturn mockedBundle
+            whenever(api.getBundleInfo()).thenReturn(mockedBundle)
             Lingohub.update()
             verify(api, times(1)).downloadBundle(mockedBundle.body()!!.filesUrl)
         }
@@ -61,8 +62,8 @@ class UpdaterTest : BaseContextTest() {
         val mockedBundle = getMockedBundleInfo()
 
         runTest {
-            When calling api.getBundleInfo() doReturn mockedBundle
-            When calling api.downloadBundle(any()) doReturn downloadResponse
+            whenever(api.getBundleInfo()).thenReturn(mockedBundle)
+            whenever(api.downloadBundle(any())).thenReturn(downloadResponse)
             Lingohub.updater.update()
             verify(fileHelper, times(1)).unzipBundle(any())
         }
@@ -70,7 +71,7 @@ class UpdaterTest : BaseContextTest() {
 
     @Test
     fun `Bundle not deleted when app not updated`() {
-        When calling preferences.getBundleMetadata() doReturn BundleMetadata("identifier", "4")
+        whenever(preferences.getBundleMetadata()).thenReturn(BundleMetadata("identifier", "4"))
         Lingohub.appVersionCode = "4"
         runTest {
             Lingohub.checkIfUpdated()
@@ -80,7 +81,7 @@ class UpdaterTest : BaseContextTest() {
 
     @Test
     fun `Bundle deleted on app update`() {
-        When calling preferences.getBundleMetadata() doReturn BundleMetadata("identifier", "19")
+        whenever(preferences.getBundleMetadata()).thenReturn(BundleMetadata("identifier", "19"))
         Lingohub.appVersionCode = "20"
         runTest {
             Lingohub.checkIfUpdated()

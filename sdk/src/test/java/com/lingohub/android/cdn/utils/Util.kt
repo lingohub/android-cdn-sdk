@@ -9,19 +9,18 @@ import com.lingohub.android.cdn.core.Lingohub
 import com.lingohub.android.cdn.data.IRepository
 import com.lingohub.android.cdn.data.model.Environment
 import org.mockito.kotlin.mock
-import org.amshove.kluent.*
-import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.whenever
 
 import java.util.*
 
 fun createConfiguration(locale: Locale = Locale.ENGLISH): Configuration = mock<Configuration>().apply {
     this.locale = locale
-    When calling this.locales doReturn LocaleList(locale)
+    whenever(this.locales).thenReturn(LocaleList(locale))
 }
 
 fun configureResourceGetText(resources: Resources, id: Int, nameId: String, text: CharSequence) {
-    When calling resources.getResourceEntryName(id) doReturn nameId
-    When calling resources.getText(id) doReturn text
+    whenever(resources.getResourceEntryName(id)).thenReturn(nameId)
+    whenever(resources.getText(id)).thenReturn(text)
 }
 
 fun clearLingohub(context: Context) {

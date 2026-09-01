@@ -2,10 +2,8 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
-    id("org.jetbrains.kotlin.plugin.parcelize")
+    alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.maven.publish)
 }
 
@@ -19,12 +17,10 @@ android {
 
     buildFeatures {
         buildConfig = true
-        compose = true
     }
 
     defaultConfig {
         minSdk = 24
-        targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
         buildConfigField("String", "SDK_VERSION_NAME", "\"$sdkVersion\"")
@@ -46,17 +42,13 @@ android {
     }
 
     compileOptions {
+        // Built-in Kotlin derives jvmTarget from targetCompatibility.
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
     }
 }
 
 dependencies {
-    implementation(libs.kotlin.stdlib.jdk7)
     implementation(libs.androidx.appcompat)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.android)
@@ -67,27 +59,19 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.retrofit)
     implementation(libs.logging.interceptor)
-    implementation(libs.retrofit2.kotlinx.serialization.converter)
-
-    // Compose dependencies
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
+    implementation(libs.retrofit.converter.kotlinx.serialization)
 
     // Test dependencies
     testImplementation(libs.junit.jupiter.api)
     testRuntimeOnly(libs.junit.jupiter.engine)
     testImplementation(libs.junit.jupiter.params)
-    testImplementation(libs.junit.platform.launcher)
+    testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.mockito.core)
-    testImplementation(libs.kotlin.mockito.kotlin)
-    testImplementation(libs.kotlinx.coroutines.test.v173)
-    testImplementation(libs.kluent.android.v159)
+    testImplementation(libs.mockito.kotlin)
+    testImplementation(libs.kotlinx.coroutines.test)
     // Android testing dependencies
-    androidTestImplementation(libs.androidx.junit.v112)
-    androidTestImplementation(libs.androidx.espresso.core.v330)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
 }
 
 mavenPublishing {
