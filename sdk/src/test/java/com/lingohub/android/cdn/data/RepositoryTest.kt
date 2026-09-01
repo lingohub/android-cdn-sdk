@@ -60,4 +60,36 @@ class RepositoryTest {
         val result = repository.getTextArray("non_existent")
         assert(result == null)
     }
+
+    @Test
+    fun `getPlural resolves PLURAL-typed items as delivered by the CDN`() {
+        val bundle = Bundle(
+            iso = "en",
+            items = listOf(
+                Item("trips_members_one", type = "PLURAL", value = "%1\$d traveler"),
+                Item("trips_members_other", type = "PLURAL", value = "%1\$d travelers")
+            )
+        )
+        val repo = Repository(bundle)
+
+        assert(repo.getPlural("trips_members", "one") == "%1\$d traveler")
+        assert(repo.getPlural("trips_members", "other") == "%1\$d travelers")
+    }
+
+    @Test
+    fun `blank values are skipped so lookups fall back to packaged resources`() {
+        val bundle = Bundle(
+            iso = "de",
+            items = listOf(
+                Item("app_name", type = "TEXT", value = ""),
+                Item("trips_members_one", type = "PLURAL", value = ""),
+                Item("colors", type = "ARRAY", valueArray = emptyList())
+            )
+        )
+        val repo = Repository(bundle)
+
+        assert(repo.getText("app_name") == null)
+        assert(repo.getPlural("trips_members", "one") == null)
+        assert(repo.getTextArray("colors") == null)
+    }
 }

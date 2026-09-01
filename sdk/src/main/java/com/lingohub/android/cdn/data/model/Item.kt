@@ -15,4 +15,5 @@ internal data class Item(
 
 
 internal fun Item.isText() = type == "TEXT"
+internal fun Item.isPlural() = type == "PLURAL"
 internal fun Item.isArray() = type == "ARRAY"
