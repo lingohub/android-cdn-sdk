@@ -64,13 +64,15 @@ private fun LingoHubDemoContent(
         Text(text = stringResource(id = R.string.title))
 
 
+        // Compare by language: getCurrentLocale() may return a region-specific
+        // device locale like en_US, which is not equal to Locale.ENGLISH.
+        val isEnglish = currentLocale.language == Locale.ENGLISH.language
         Button(
             onClick = {
-                val newLocale = if (currentLocale == Locale.ENGLISH) Locale.GERMAN else Locale.ENGLISH
-                onLanguageChange(newLocale)
+                onLanguageChange(if (isEnglish) Locale.GERMAN else Locale.ENGLISH)
             }
         ) {
-            Text(text = if (currentLocale == Locale.ENGLISH) "Switch to German" else "Switch to English")
+            Text(text = if (isEnglish) "Switch to German" else "Switch to English")
         }
 
 
