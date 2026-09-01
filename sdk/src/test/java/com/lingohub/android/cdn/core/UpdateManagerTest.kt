@@ -11,8 +11,8 @@ import org.mockito.kotlin.*
 @OptIn(ExperimentalCoroutinesApi::class)
 class UpdateManagerTest {
     private lateinit var updateManager: UpdateManager
-    private lateinit var listener1: LingohubUpdateListener
-    private lateinit var listener2: LingohubUpdateListener
+    private lateinit var listener1: LingoHubUpdateListener
+    private lateinit var listener2: LingoHubUpdateListener
     private val testDispatcher = StandardTestDispatcher()
 
     @BeforeEach

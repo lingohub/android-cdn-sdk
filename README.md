@@ -1,24 +1,37 @@
-# Lingohub Android SDK
+# LingoHub Android SDK
 
 [![Maven Central](https://img.shields.io/maven-central/v/com.lingohub/android-cdn-sdk?style=flat-square)](https://central.sonatype.com/artifact/com.lingohub/android-cdn-sdk)
 [![License](https://img.shields.io/github/license/lingohub/android-cdn-sdk?style=flat-square)](./LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Android%20API%2024%2B-brightgreen?style=flat-square)](#requirements)
 
-The Lingohub Android SDK provides seamless integration of Lingohub's localization services into your Android applications. It supports both traditional XML-based resources and Jetpack Compose applications.
+A Kotlin SDK for over-the-air (OTA) localization with [LingoHub](https://lingohub.com). Update your app's translations without releasing a new app version.
+
+**Contents:** [How it works](#how-it-works) · [Installation](#installation) · [Get your API key](#get-your-api-key) · [Quick Start](#quick-start) · [Configuration](#configuration) · [Advanced Usage](#advanced-usage) · [Error handling](#error-handling) · [Privacy](#privacy) · [Sample app](#sample-app)
 
 ## Features
 
-- Real-time translation updates without app releases
-- Support for both XML resources and Jetpack Compose
-- Automatic locale handling and switching
-- Support for string resources, plurals, and string arrays
-- Background bundle updates
-- Comprehensive logging system
-- Configurable environments (Production/Development)
+* 🚀 Over-the-air localization updates via the LingoHub CDN
+* 🔄 Runtime language switching
+* 📱 Works with XML resources **and** Jetpack Compose
+* 🛠 Seamless integration — keep using `getString(...)` and `stringResource(...)` as usual
+* 📦 Supports string resources, plurals, and string arrays
+* 🔒 Descriptive error reporting
+* 📝 Optional debug logging
+
+## How it works
+
+1. Publish a release for a **Distribution** in LingoHub.
+2. The SDK asks the LingoHub CDN whether a release matching your app version is available. Releases can target app version ranges, with an optional fallback release for all other versions.
+3. If there is a new release, the SDK downloads it and serves the updated strings through the standard Android resource APIs.
+4. Downloaded translations are cached on disk and discarded automatically when your app version changes, so a fresh app release always starts from its bundled strings.
+
+If nothing has been published yet for your app version and environment, the SDK simply reports that no update is available — that is a normal state, not an error.
 
 ## Requirements
 
-- Android API level 24+
-- AndroidX
+* Android API level 24+
+* AndroidX
+* Your app must compile against `compileSdk` 36 or later
 
 ## Installation
 
@@ -46,6 +59,25 @@ dependencies {
 `mavenCentral()` is part of the default repository setup of every current Android project, so no extra repository configuration is needed.
 
 > **Migrating from JitPack?** Earlier versions were distributed via JitPack under `com.github.lingohub` coordinates. JitPack is no longer supported — switch to the Maven Central coordinates above and remove the `maven { url 'https://jitpack.io' }` repository if nothing else uses it.
+>
+> The public API was also renamed to the LingoHub brand spelling in 1.1.0. Update your imports and references:
+>
+> | Old (JitPack era)         | New                       |
+> | ------------------------- | ------------------------- |
+> | `Lingohub`                | `LingoHub`                |
+> | `LingohubUpdateListener`  | `LingoHubUpdateListener`  |
+> | `LingohubSDKError`        | `LingoHubSDKError`        |
+> | `LingohubLogLevel`        | `LingoHubLogLevel`        |
+>
+> Package names are unchanged (`com.lingohub.android.cdn.*`), so this is a find-and-replace of the type names.
+
+## Get your API key
+
+1. In LingoHub, open your project and create a **Distribution** (type: *Mobile SDK Android*).
+2. Publish a release for the environment you want to use (or mark one release as the fallback).
+3. Copy the distribution's CDN API key — it starts with `lh-cdn_`.
+
+See the [LingoHub CDN documentation](https://developers.lingohub.com/reference/distributions) for details.
 
 ## Quick Start
 
@@ -53,41 +85,40 @@ dependencies {
 
 ```kotlin
 import android.app.Application
-import com.lingohub.android.cdn.core.Lingohub
+import com.lingohub.android.cdn.core.LingoHub
 
 class YourApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        // Configure Lingohub with your distribution API key (starts with "lh-cdn_")
-        Lingohub.configure(
+        LingoHub.configure(
             context = this,
-            apiKey = "your-api-key"
+            apiKey = "lh-cdn_..."
         )
 
         // Fetch the latest translations
-        Lingohub.update()
+        LingoHub.update()
     }
 }
 ```
 
 ### 2. Wrap your Activities
 
-Lingohub replaces strings by wrapping the Activity context, so every Activity — XML **and** Compose based — needs the Lingohub `AppCompatDelegate`. The easiest way is a `BaseActivity` that all your Activities extend:
+LingoHub replaces strings by wrapping the Activity context, so every Activity — XML **and** Compose based — needs the LingoHub `AppCompatDelegate`. The easiest way is a `BaseActivity` that all your Activities extend:
 
 ```kotlin
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
-import com.lingohub.android.cdn.core.Lingohub
+import com.lingohub.android.cdn.core.LingoHub
 
 abstract class BaseActivity : AppCompatActivity() {
 
-    private val lingohubDelegate: AppCompatDelegate by lazy {
-        Lingohub.getAppCompatDelegate(this, AppCompatDelegate.create(this, null))
+    private val lingoHubDelegate: AppCompatDelegate by lazy {
+        LingoHub.getAppCompatDelegate(this, AppCompatDelegate.create(this, null))
     }
 
     override fun getDelegate(): AppCompatDelegate {
-        return lingohubDelegate
+        return lingoHubDelegate
     }
 }
 ```
@@ -98,13 +129,9 @@ class MainActivity : BaseActivity() {
 }
 ```
 
-Without the delegate, translations still download but are only applied from the next app start.
+The delegate is **mandatory**: it is what routes resource lookups through LingoHub. Activities without it keep showing the strings packaged in your APK — downloaded translations are never applied to them, not even after an app restart.
 
-## Usage
-
-### String resources
-
-Access string resources exactly as you normally would:
+### 3. Use your strings as usual
 
 ```kotlin
 // XML / programmatic
@@ -114,71 +141,75 @@ context.getString(R.string.your_string)
 Text(text = stringResource(R.string.your_string))
 ```
 
-Plurals (`getQuantityString`) and string arrays (`getStringArray`) are supported the same way.
+Plurals (`getQuantityString`) and string arrays (`getStringArray`) work the same way.
 
-### Switching languages
-
-Change the app's language at runtime:
+## Configuration
 
 ```kotlin
-import java.util.Locale
-
-Lingohub.setLocale(Locale.GERMAN)
-```
-
-Already-rendered screens don't re-render themselves: recreate the Activity (or drive your Compose UI from a locale state, as shown in the [sample app](sample/src/main/java/com/lingohub/android/cdn/example/MainActivity.kt)) to see the change immediately.
-
-## Advanced Configuration
-
-### Optional parameters
-
-```kotlin
-import com.lingohub.android.cdn.core.Lingohub
+import com.lingohub.android.cdn.core.LingoHub
 import com.lingohub.android.cdn.data.model.Environment
-import com.lingohub.android.cdn.utils.LingohubLogLevel
+import com.lingohub.android.cdn.utils.LingoHubLogLevel
 
-Lingohub.configure(
+LingoHub.configure(
     context = this,
-    apiKey = "your-api-key",
+    apiKey = "lh-cdn_...",
     environment = Environment.PRODUCTION,   // optional, defaults to PRODUCTION
-    logLevel = LingohubLogLevel.FULL        // optional, defaults to NONE — avoid FULL in production
+    logLevel = LingoHubLogLevel.FULL        // optional, defaults to NONE
 )
 ```
 
 | Parameter     | Values                                                                                         | Default                  |
 | ------------- | ---------------------------------------------------------------------------------------------- | ------------------------ |
 | `environment` | `Environment.PRODUCTION`, `Environment.STAGING`, `Environment.DEVELOPMENT`, `Environment.TEST` | `Environment.PRODUCTION` |
-| `logLevel`    | `LingohubLogLevel.NONE`, `LingohubLogLevel.FULL`                                               | `LingohubLogLevel.NONE`  |
+| `logLevel`    | `LingoHubLogLevel.NONE`, `LingoHubLogLevel.FULL`                                               | `LingoHubLogLevel.NONE`  |
+
+The `environment` must match the environment of the release you published. Enable `FULL` logging only in debug builds:
+
+```kotlin
+logLevel = if (BuildConfig.DEBUG) LingoHubLogLevel.FULL else LingoHubLogLevel.NONE
+```
+
+## Advanced Usage
+
+### Switch languages at runtime
+
+```kotlin
+import java.util.Locale
+
+LingoHub.setLocale(Locale.GERMAN)
+```
+
+Already-rendered screens don't re-render themselves: recreate the Activity, or drive your Compose UI from a locale state as shown in the [sample app](sample/src/main/java/com/lingohub/android/cdn/example/MainActivity.kt). `LingoHub.getCurrentLocale()` returns the active locale — use it to initialize that state so it survives Activity recreation.
 
 ### Update notifications
 
-Implement `LingohubUpdateListener` to react when a new translation bundle has been downloaded. Recreating the Activity is the simplest way to apply updates immediately — make sure your Activity state survives recreation:
+Implement `LingoHubUpdateListener` to react when a new translation bundle has been downloaded. Recreating the Activity is the simplest way to apply updates immediately — make sure your Activity state survives recreation:
 
 ```kotlin
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
-import com.lingohub.android.cdn.core.Lingohub
-import com.lingohub.android.cdn.core.LingohubUpdateListener
+import com.lingohub.android.cdn.core.LingoHub
+import com.lingohub.android.cdn.core.LingoHubUpdateListener
 
-abstract class BaseActivity : AppCompatActivity(), LingohubUpdateListener {
+abstract class BaseActivity : AppCompatActivity(), LingoHubUpdateListener {
 
-    private val lingohubDelegate: AppCompatDelegate by lazy {
-        Lingohub.getAppCompatDelegate(this, AppCompatDelegate.create(this, null))
+    private val lingoHubDelegate: AppCompatDelegate by lazy {
+        LingoHub.getAppCompatDelegate(this, AppCompatDelegate.create(this, null))
     }
 
     override fun getDelegate(): AppCompatDelegate {
-        return lingohubDelegate
+        return lingoHubDelegate
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Lingohub.addUpdateListener(this)
+        LingoHub.addUpdateListener(this)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        Lingohub.removeUpdateListener(this)
+        LingoHub.removeUpdateListener(this)
     }
 
     override fun onUpdate() {
@@ -190,14 +221,14 @@ abstract class BaseActivity : AppCompatActivity(), LingohubUpdateListener {
     }
 
     override fun onFailure(throwable: Throwable) {
-        // Handle failure if needed
+        // See "Error handling" below
     }
 }
 ```
 
-### Reducing network requests
+### Reduce network requests
 
-`Lingohub.update()` performs a network request each time it is called. If you don't need instant updates, check only periodically — for example once a day:
+`LingoHub.update()` performs a network request each time it is called. If you don't need instant updates, check only periodically — for example once a day:
 
 ```kotlin
 import android.content.Context
@@ -227,38 +258,72 @@ class YourApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        Lingohub.configure(
+        LingoHub.configure(
             context = this,
-            apiKey = "your-api-key"
+            apiKey = "lh-cdn_..."
         )
 
         val cacheManager = CacheManager(this)
         if (cacheManager.shouldUpdate()) {
-            Lingohub.update()
+            LingoHub.update()
             cacheManager.updateLastFetchTime()
         }
     }
 }
 ```
 
+## Error handling
+
+Two situations are **not** errors and never reach your listener — the SDK just logs them at info level:
+
+* **Already up to date** — the CDN answered that you have the latest release.
+* **Nothing published yet** — no release exists for your environment and app version (`DISTRIBUTION_NOT_FOUND`). Publish a release in your Distribution to resolve this.
+
+Real failures are delivered to `LingoHubUpdateListener.onFailure(throwable)` as a `LingoHubSDKError` carrying the HTTP status and the server's error codes as structured fields — `statusCode: Int?` and `errorCodes: List<String>` — so you can react without parsing the message:
+
+| Status | Error codes                                          | Meaning and what to do                                                                       |
+| ------ | ---------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 401    | `CDN_KEY_NOT_FOUND`, `CDN_KEY_EXPIRED`, `TOKEN_EXPIRED`, `JWT_INVALID` | The API key is missing, invalid, revoked, or rotated — check the key you pass to `configure` |
+| 429    | `USAGE_LIMIT_EXCEEDED`                               | Your CDN usage budget is exhausted; translation updates are paused. Consider throttling your own checks (see "Reduce network requests") |
+| 400    | —                                                    | Malformed request — usually an SDK/backend version mismatch, please report it                |
+| other  | —                                                    | Network errors and unexpected responses                                                      |
+
+```kotlin
+override fun onFailure(throwable: Throwable) {
+    val error = throwable as? LingoHubSDKError
+    when {
+        error?.statusCode == 429 -> scheduleRetryTomorrow()
+        error != null && "CDN_KEY_EXPIRED" in error.errorCodes -> alertKeyRotationNeeded()
+        else -> Log.w("MyApp", "LingoHub update failed: ${throwable.message}")
+    }
+}
+```
+
+`statusCode` is `null` for local and network errors (no response was received).
+
+### Troubleshooting
+
+* **`onUpdate` never fires and nothing changes** — most likely no release is published yet for your app version and environment. Publish a release in your Distribution (or mark one as the fallback), and double-check that the `environment` you configure matches the release's environment. Enable `LingoHubLogLevel.FULL` in a debug build to see what the SDK is doing.
+* **Strings never change, not even after an app restart** — your Activities don't use the LingoHub delegate. It is mandatory; see [Quick Start step 2](#2-wrap-your-activities).
+* **Strings change only after leaving and reopening a screen** — the delegate is in place, but you don't `recreate()` the visible Activity in `onUpdate`.
+* **Error 401** — the CDN key is missing, invalid, or was revoked. The error message contains the reason (for example `CDN_KEY_NOT_FOUND`).
+* **Error 429** — your CDN usage budget is exhausted. Throttle your update checks.
+
 ## R8 / ProGuard
 
 No configuration needed — the SDK ships its consumer rules inside the AAR.
 
-## Data collected by the SDK
+## Privacy
 
-When checking for translation updates, the SDK sends the following to Lingohub's CDN; include it in your Play Console *Data safety* declaration as applicable:
+What the SDK touches on the device and network — relevant for your Play Console *Data safety* declaration:
 
-| Field                | Content                                          |
-| -------------------- | ------------------------------------------------ |
-| `clientUser`         | The device's `ANDROID_ID` (device identifier)    |
-| `clientVersion`      | Your app's version name                          |
-| `clientLanguageCode` | The current app language                         |
-| `clientAgent`        | SDK name and version                             |
+* `SharedPreferences` — stores the installed release ID and app version.
+* Downloaded translation bundles — stored in the app's internal files directory.
+* Each update check sends to the LingoHub CDN: your app's version name, the current app language, the SDK version, and the device's [`ANDROID_ID`](https://developer.android.com/reference/android/provider/Settings.Secure#ANDROID_ID) as the client identifier for usage metering. `ANDROID_ID` is a stable device identifier (scoped to app signing key, user, and device on API 26+), so declare it under **Device or other IDs** in your Play Console *Data safety* form.
 
 ## Sample app
 
-The [`sample`](sample/) module is a small Compose app showing configuration, locale switching, and update handling end to end.
+The [`sample`](sample/) module in this repository shows a complete Compose integration, including runtime language switching and update notifications. Open the project in Android Studio, insert your CDN API key in [`LingoHubApplication.kt`](sample/src/main/java/com/lingohub/android/cdn/example/LingoHubApplication.kt), and run the `sample` configuration.
 
 ## Support
 
@@ -266,4 +331,4 @@ For bug reports and feature requests, please open an issue on GitHub.
 
 ## License
 
-Apache License Version 2.0, January 2004. More info in the [`LICENSE`](LICENSE) file.
+Apache License Version 2.0, January 2004. More info in the [LICENSE](./LICENSE) file.

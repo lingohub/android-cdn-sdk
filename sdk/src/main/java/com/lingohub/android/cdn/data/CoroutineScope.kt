@@ -6,11 +6,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
 
-interface ICoroutineScope : CoroutineScope {
+internal interface ICoroutineScope : CoroutineScope {
     fun launch(block: suspend CoroutineScope.() -> Unit): Job
 }
 
-class LingohubScope : ICoroutineScope {
+internal class LingoHubScope : ICoroutineScope {
     override val coroutineContext: CoroutineContext = Dispatchers.Main
     private val scope = CoroutineScope(Dispatchers.Main)
 

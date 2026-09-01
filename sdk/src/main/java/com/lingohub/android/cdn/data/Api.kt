@@ -1,10 +1,10 @@
 package com.lingohub.android.cdn.data
 
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
-import com.lingohub.android.cdn.core.Lingohub
+import com.lingohub.android.cdn.core.LingoHub
 import com.lingohub.android.cdn.data.model.BundleInfo
-import com.lingohub.android.cdn.utils.LingohubLogLevel
-import com.lingohub.android.cdn.utils.LingohubLogger
+import com.lingohub.android.cdn.utils.LingoHubLogLevel
+import com.lingohub.android.cdn.utils.LingoHubLogger
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
@@ -35,11 +35,11 @@ internal interface Api {
         fun build(): Api {
             val client by lazy {
                 val loggingInterceptor =
-                    HttpLoggingInterceptor { message -> LingohubLogger.logger.onDebug(message) }
+                    HttpLoggingInterceptor { message -> LingoHubLogger.logger.onDebug(message) }
 
                 // Only pay the body-buffering cost when logging is actually enabled.
                 loggingInterceptor.setLevel(
-                    if (LingohubLogger.logLevel == LingohubLogLevel.FULL) {
+                    if (LingoHubLogger.logLevel == LingoHubLogLevel.FULL) {
                         HttpLoggingInterceptor.Level.BODY
                     } else {
                         HttpLoggingInterceptor.Level.NONE
@@ -52,7 +52,7 @@ internal interface Api {
                                 ?.method()?.isAnnotationPresent(Authenticated::class.java) == true) {
                             // Only add Authorization for requests marked with @Authenticated
                             request.newBuilder()
-                                .addHeader("Authorization", "Bearer ${requireNotNull(Lingohub.apiKey)}")
+                                .addHeader("Authorization", "Bearer ${requireNotNull(LingoHub.apiKey)}")
                                 .build()
                         } else {
                             request

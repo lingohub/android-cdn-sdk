@@ -86,8 +86,8 @@ mavenPublishing {
     coordinates("com.lingohub", "android-cdn-sdk", sdkVersion)
 
     pom {
-        name.set("Lingohub Android CDN SDK")
-        description.set("A lightweight Android SDK that retrieves up-to-date translations from Lingohub, enabling real-time multilingual content delivery without requiring app updates.")
+        name.set("LingoHub Android CDN SDK")
+        description.set("A lightweight Android SDK that retrieves up-to-date translations from LingoHub, enabling real-time multilingual content delivery without requiring app updates.")
         url.set("https://github.com/lingohub/android-cdn-sdk")
 
         licenses {
@@ -100,7 +100,7 @@ mavenPublishing {
         developers {
             developer {
                 id.set("lingohub")
-                name.set("lingohub GmbH")
+                name.set("LingoHub GmbH")
                 email.set("office@lingohub.com")
             }
         }

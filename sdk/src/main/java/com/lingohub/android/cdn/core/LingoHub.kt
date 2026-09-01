@@ -13,15 +13,15 @@ import com.lingohub.android.cdn.data.model.BundleMetadata
 import com.lingohub.android.cdn.data.model.Environment
 import com.lingohub.android.cdn.ui.InflationInterceptor
 import com.lingohub.android.cdn.utils.BundleHelper
-import com.lingohub.android.cdn.utils.LingohubLogLevel
-import com.lingohub.android.cdn.utils.LingohubLogger
+import com.lingohub.android.cdn.utils.LingoHubLogLevel
+import com.lingohub.android.cdn.utils.LingoHubLogger
 import com.lingohub.android.cdn.utils.SnapKitHelper
 import com.lingohub.android.cdn.data.Api
 import com.lingohub.android.cdn.data.FileHelper
 import com.lingohub.android.cdn.data.IFileHelper
 import com.lingohub.android.cdn.data.IPreferences
 import com.lingohub.android.cdn.data.IRepository
-import com.lingohub.android.cdn.data.LingohubScope
+import com.lingohub.android.cdn.data.LingoHubScope
 import com.lingohub.android.cdn.data.Preferences
 import com.lingohub.android.cdn.data.Repository
 import com.lingohub.android.cdn.data.Updater
@@ -30,7 +30,7 @@ import java.io.File
 import java.util.*
 
 @Keep
-object Lingohub {
+object LingoHub {
 
     internal var apiKey: String? = null
     internal lateinit var appVersionCode: String
@@ -58,9 +58,9 @@ object Lingohub {
         context: Context,
         apiKey: String,
         environment: Environment? = Environment.PRODUCTION,
-        logLevel: LingohubLogLevel = LingohubLogLevel.NONE
+        logLevel: LingoHubLogLevel = LingoHubLogLevel.NONE
     ) {
-        LingohubLogger.init(logLevel)
+        LingoHubLogger.init(logLevel)
         SnapKitHelper.enableIfTest()
         this.environment = environment ?: Environment.PRODUCTION
         this.apiKey = apiKey
@@ -79,7 +79,7 @@ object Lingohub {
 
         this.api = Api.Companion.build()
         this.preferences = Preferences(context)
-        this.updater = Updater(LingohubScope())
+        this.updater = Updater(LingoHubScope())
 
         ViewPump.init(InflationInterceptor)
 
@@ -100,7 +100,7 @@ object Lingohub {
         return ViewPumpAppCompatDelegate(
             baseDelegate = baseDelegate,
             baseContext = activity,
-            wrapContext = { baseContext -> LingohubContextWrapper(baseContext) }
+            wrapContext = { baseContext -> LingoHubContextWrapper(baseContext) }
         )
     }
 
@@ -108,7 +108,7 @@ object Lingohub {
     @JvmStatic
     fun update() {
         ensureInit()
-        LingohubLogger.logger.onInfo("checking for bundle update (${environment.name})")
+        LingoHubLogger.logger.onInfo("checking for bundle update (${environment.name})")
         updater.update()
     }
 
@@ -118,13 +118,24 @@ object Lingohub {
         LocaleProvider.currentLocale = locale
     }
 
+    /**
+     * The locale currently used to resolve translations. Falls back to the
+     * device locale until [setLocale] is called. Use it to restore UI state
+     * after an Activity recreation.
+     */
+    @Keep
+    @JvmStatic
+    fun getCurrentLocale(): Locale {
+        return LocaleProvider.currentLocale
+    }
+
     internal fun stringRequested(key: String, string: String) {
         SnapKitHelper.addString(key, string)
     }
 
     private fun ensureInit() {
         if (apiKey == null) {
-            throw LingohubSDKError("The apiKey is missing.")
+            throw LingoHubSDKError("The apiKey is missing.")
         }
     }
 
@@ -133,9 +144,9 @@ object Lingohub {
         clearRepositories()
 
         val metaData = BundleMetadata(bundleInfo.id, appVersionCode)
-        LingohubLogger.logger.onDebug("saving bundle meta: $metaData")
+        LingoHubLogger.logger.onDebug("saving bundle meta: $metaData")
         preferences.saveBundleMetadata(metaData)
-        LingohubLogger.logger.onInfo("downloaded new bundle with id: ${bundleInfo.id}")
+        LingoHubLogger.logger.onInfo("downloaded new bundle with id: ${bundleInfo.id}")
 
         // Notify listeners that data has changed
         updateManager.notifyDataChanged()
@@ -146,11 +157,11 @@ object Lingohub {
         val bundleAppVersion = savedMetadata?.appVersion?.toString()
         val currentAppVersion = appVersionCode.toString()
 
-        LingohubLogger
+        LingoHubLogger
             .logger.onInfo("checking metadata $savedMetadata")
         if (bundleAppVersion != null && bundleAppVersion != currentAppVersion) {
-            LingohubLogger.logger.onInfo("bundle update required due to app version change $bundleAppVersion to $currentAppVersion")
-            LingohubLogger.logger.onInfo("app has been updated to $currentAppVersion, clearing local bundle (for app version $bundleAppVersion)")
+            LingoHubLogger.logger.onInfo("bundle update required due to app version change $bundleAppVersion to $currentAppVersion")
+            LingoHubLogger.logger.onInfo("app has been updated to $currentAppVersion, clearing local bundle (for app version $bundleAppVersion)")
             preferences.clearBundleMetadata()
             updater.scope.launch { fileHelper.deleteBundle() }
         }
@@ -170,7 +181,7 @@ object Lingohub {
 
     private fun clearRepositories() {
         repositoryMap.clear()
-        LingohubLogger.logger.onDebug("cleared repositories")
+        LingoHubLogger.logger.onDebug("cleared repositories")
     }
 
     private fun buildRepository(locale: Locale): IRepository? {
@@ -179,13 +190,13 @@ object Lingohub {
 
     @Keep
     @JvmStatic
-    fun addUpdateListener(listener: LingohubUpdateListener) {
+    fun addUpdateListener(listener: LingoHubUpdateListener) {
         updateManager.addLoadingStateListener(listener)
     }
 
     @Keep
     @JvmStatic
-    fun removeUpdateListener(listener: LingohubUpdateListener) {
+    fun removeUpdateListener(listener: LingoHubUpdateListener) {
         updateManager.removeLoadingStateListener(listener)
     }
 

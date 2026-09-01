@@ -19,6 +19,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Lingohub SDK"
+rootProject.name = "LingoHub SDK"
 include(":sdk")
 include(":sample")

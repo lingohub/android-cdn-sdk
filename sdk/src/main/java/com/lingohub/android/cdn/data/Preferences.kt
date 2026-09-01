@@ -17,6 +17,11 @@ internal class Preferences(context: Context) : IPreferences {
         const val APP_VERSION = "app_version"
     }
 
+    // Storage identifier, not brand surface: this name must stay "Lingohub" so apps
+    // upgrading from older SDK versions keep their bundle metadata. Renaming it would
+    // orphan the metadata while the downloaded bundle in files/lingohub survives,
+    // which lets checkIfUpdated() skip the app-version-change cleanup and serve
+    // stale translations until the next successful update.
     private val prefs: SharedPreferences = context.getSharedPreferences("Lingohub", Context.MODE_PRIVATE)
 
     override fun getBundleMetadata(): BundleMetadata? {
