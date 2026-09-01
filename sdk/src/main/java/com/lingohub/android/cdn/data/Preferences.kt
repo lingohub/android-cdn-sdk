@@ -17,7 +17,7 @@ internal class Preferences(context: Context) : IPreferences {
         const val APP_VERSION = "app_version"
     }
 
-    private val prefs: SharedPreferences = context.getSharedPreferences("Lingohub", Context.MODE_PRIVATE)
+    private val prefs: SharedPreferences = context.getSharedPreferences("LingoHub", Context.MODE_PRIVATE)
 
     override fun getBundleMetadata(): BundleMetadata? {
         val bundleId = prefs.getString(BUNDLE_ID, null) ?: return null

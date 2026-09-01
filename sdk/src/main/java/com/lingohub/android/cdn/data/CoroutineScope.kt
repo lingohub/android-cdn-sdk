@@ -10,7 +10,7 @@ interface ICoroutineScope : CoroutineScope {
     fun launch(block: suspend CoroutineScope.() -> Unit): Job
 }
 
-class LingohubScope : ICoroutineScope {
+class LingoHubScope : ICoroutineScope {
     override val coroutineContext: CoroutineContext = Dispatchers.Main
     private val scope = CoroutineScope(Dispatchers.Main)
 

@@ -1,11 +1,11 @@
 package com.lingohub.android.cdn.data
 
 import com.lingohub.android.cdn.core.BaseContextTest
-import com.lingohub.android.cdn.core.Lingohub
-import com.lingohub.android.cdn.core.LingohubUpdateListener
+import com.lingohub.android.cdn.core.LingoHub
+import com.lingohub.android.cdn.core.LingoHubUpdateListener
 import com.lingohub.android.cdn.data.model.BundleInfo
 import com.lingohub.android.cdn.data.model.BundleMetadata
-import com.lingohub.android.cdn.utils.configureLingohub
+import com.lingohub.android.cdn.utils.configureLingoHub
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -42,12 +42,12 @@ class UpdaterTest : BaseContextTest() {
     @BeforeEach
     override fun setup() {
         super.setup()
-        configureLingohub(baseContext)
+        configureLingoHub(baseContext)
         Dispatchers.setMain(testDispatcher)
-        Lingohub.api = api
-        Lingohub.preferences = preferences
-        Lingohub.fileHelper = fileHelper
-        Lingohub.updater = Updater(BlockingCoroutineScope())
+        LingoHub.api = api
+        LingoHub.preferences = preferences
+        LingoHub.fileHelper = fileHelper
+        LingoHub.updater = Updater(BlockingCoroutineScope())
     }
 
     @Test
@@ -55,7 +55,7 @@ class UpdaterTest : BaseContextTest() {
         val mockedBundle = getMockedBundleInfo()
         runTest {
             whenever(api.getBundleInfo()).thenReturn(mockedBundle)
-            Lingohub.update()
+            LingoHub.update()
             verify(api, times(1)).downloadBundle(mockedBundle.body()!!.filesUrl)
         }
     }
@@ -68,64 +68,64 @@ class UpdaterTest : BaseContextTest() {
         runTest {
             whenever(api.getBundleInfo()).thenReturn(mockedBundle)
             whenever(api.downloadBundle(any())).thenReturn(downloadResponse)
-            Lingohub.updater.update()
+            LingoHub.updater.update()
             verify(fileHelper, times(1)).unzipBundle(any())
         }
     }
 
     @Test
     fun `204 response means up to date and is not reported as failure`() {
-        val listener: LingohubUpdateListener = mock()
-        Lingohub.addUpdateListener(listener)
+        val listener: LingoHubUpdateListener = mock()
+        LingoHub.addUpdateListener(listener)
         runTest {
             whenever(api.getBundleInfo()).thenReturn(Response.success(204, null as BundleInfo?))
-            Lingohub.update()
+            LingoHub.update()
             verify(api, never()).downloadBundle(any())
             verify(listener, never()).onFailure(any())
         }
-        Lingohub.removeUpdateListener(listener)
+        LingoHub.removeUpdateListener(listener)
     }
 
     @Test
     fun `404 distribution not found is treated as no update, not failure`() {
-        val listener: LingohubUpdateListener = mock()
-        Lingohub.addUpdateListener(listener)
+        val listener: LingoHubUpdateListener = mock()
+        LingoHub.addUpdateListener(listener)
         runTest {
             val body =
                 """{"type":"about:blank","status":404,"detail":"Not Found","errors":[{"field":"DISTRIBUTION","infos":["DISTRIBUTION_NOT_FOUND"]}]}"""
                     .toResponseBody("application/json".toMediaType())
             whenever(api.getBundleInfo()).thenReturn(Response.error(404, body))
-            Lingohub.update()
+            LingoHub.update()
             verify(api, never()).downloadBundle(any())
             verify(listener, never()).onFailure(any())
         }
-        Lingohub.removeUpdateListener(listener)
+        LingoHub.removeUpdateListener(listener)
     }
 
     @Test
     fun `429 usage limit exceeded notifies a specific failure`() {
-        val listener: LingohubUpdateListener = mock()
-        Lingohub.addUpdateListener(listener)
+        val listener: LingoHubUpdateListener = mock()
+        LingoHub.addUpdateListener(listener)
         runTest {
             val body =
                 """{"type":"about:blank","status":429,"detail":"Too Many Requests","errors":[{"field":"USAGE","infos":["USAGE_LIMIT_EXCEEDED"]}]}"""
                     .toResponseBody("application/json".toMediaType())
             whenever(api.getBundleInfo()).thenReturn(Response.error(429, body))
-            Lingohub.update()
+            LingoHub.update()
             verify(api, never()).downloadBundle(any())
             val captor = argumentCaptor<Throwable>()
             verify(listener).onFailure(captor.capture())
             assertTrue(captor.firstValue.message!!.contains("usage limit", ignoreCase = true))
         }
-        Lingohub.removeUpdateListener(listener)
+        LingoHub.removeUpdateListener(listener)
     }
 
     @Test
     fun `Bundle not deleted when app not updated`() {
         whenever(preferences.getBundleMetadata()).thenReturn(BundleMetadata("identifier", "4"))
-        Lingohub.appVersionCode = "4"
+        LingoHub.appVersionCode = "4"
         runTest {
-            Lingohub.checkIfUpdated()
+            LingoHub.checkIfUpdated()
             verify(fileHelper, never()).deleteBundle()
         }
     }
@@ -133,9 +133,9 @@ class UpdaterTest : BaseContextTest() {
     @Test
     fun `Bundle deleted on app update`() {
         whenever(preferences.getBundleMetadata()).thenReturn(BundleMetadata("identifier", "19"))
-        Lingohub.appVersionCode = "20"
+        LingoHub.appVersionCode = "20"
         runTest {
-            Lingohub.checkIfUpdated()
+            LingoHub.checkIfUpdated()
             verify(fileHelper, times(1)).deleteBundle()
         }
     }

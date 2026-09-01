@@ -2,27 +2,27 @@ package com.lingohub.android.cdn.example
 
 import android.app.Application
 import com.lingohub.android.cdn.example.helpers.CacheManager
-import com.lingohub.android.cdn.core.Lingohub
+import com.lingohub.android.cdn.core.LingoHub
 import com.lingohub.android.cdn.data.model.Environment
-import com.lingohub.android.cdn.utils.LingohubLogLevel
+import com.lingohub.android.cdn.utils.LingoHubLogLevel
 
-class LingohubApplication : Application() {
+class LingoHubApplication : Application() {
     private lateinit var cacheManager: CacheManager
 
     override fun onCreate() {
         super.onCreate()
         cacheManager = CacheManager(this)
 
-        // Configure Lingohub with your project credentials
-        Lingohub.configure(
+        // Configure LingoHub with your project credentials
+        LingoHub.configure(
             context = this,
             apiKey = "YOUR_API_KEY",
             environment = Environment.PRODUCTION,
-            logLevel = LingohubLogLevel.NONE
+            logLevel = LingoHubLogLevel.NONE
         )
 
         if (cacheManager.shouldFetchStrings()) {
-            Lingohub.update()
+            LingoHub.update()
             cacheManager.updateLastFetchTime()
         }
     }

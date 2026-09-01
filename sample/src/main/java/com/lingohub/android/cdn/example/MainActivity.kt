@@ -18,8 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.lingohub.android.cdn.example.ui.theme.MyApplicationTheme
-import com.lingohub.android.cdn.core.Lingohub
+import com.lingohub.android.cdn.example.ui.theme.LingoHubSampleTheme
+import com.lingohub.android.cdn.core.LingoHub
 import java.util.Locale
 
 
@@ -31,12 +31,12 @@ class MainActivity : BaseActivity() {
         enableEdgeToEdge()
 
         setContent {
-            MyApplicationTheme {
-                LingohubDemoContent(
+            LingoHubSampleTheme {
+                LingoHubDemoContent(
                     currentLocale = currentLocale,
                     onLanguageChange = { newLocale ->
-                        // Only update Lingohub locale
-                        Lingohub.setLocale(newLocale)
+                        // Only update LingoHub locale
+                        LingoHub.setLocale(newLocale)
                         currentLocale = newLocale
                     }
                 )
@@ -47,7 +47,7 @@ class MainActivity : BaseActivity() {
 }
 
 @Composable
-private fun LingohubDemoContent(
+private fun LingoHubDemoContent(
     modifier: Modifier = Modifier,
     currentLocale: Locale,
     onLanguageChange: (Locale) -> Unit
@@ -74,7 +74,7 @@ private fun LingohubDemoContent(
 
 
         Button(
-            onClick = { Lingohub.update() }
+            onClick = { LingoHub.update() }
         ) {
             Text(text = "Check for updates")
         }
@@ -83,9 +83,9 @@ private fun LingohubDemoContent(
 
 @Preview(showBackground = true)
 @Composable
-private fun LingohubDemoPreview() {
-    MyApplicationTheme {
-        LingohubDemoContent(
+private fun LingoHubDemoPreview() {
+    LingoHubSampleTheme {
+        LingoHubDemoContent(
             currentLocale = Locale.ENGLISH,
             onLanguageChange = {}
         )

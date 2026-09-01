@@ -1,7 +1,7 @@
 package com.lingohub.android.cdn.data
 
 import com.lingohub.android.cdn.data.model.Bundle
-import com.lingohub.android.cdn.utils.LingohubLogger
+import com.lingohub.android.cdn.utils.LingoHubLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -47,7 +47,7 @@ internal class FileHelper(private val outputDirectory: File) : IFileHelper {
     override suspend fun readBundle(): List<Bundle>? = withContext(Dispatchers.IO) {
         try {
             outputDirectory.listFiles()?.map { it.name }?.let {
-                LingohubLogger.logger.onDebug("found files: $it")
+                LingoHubLogger.logger.onDebug("found files: $it")
             }
 
             val files = outputDirectory.listFiles()?.map {
@@ -63,19 +63,19 @@ internal class FileHelper(private val outputDirectory: File) : IFileHelper {
             }
 
             grouped.forEach {
-                LingohubLogger.logger.onDebug("read '${it.iso}' bundle with ${it.items.size} items")
-                LingohubLogger.logger.onDebug(it.items.toString())
+                LingoHubLogger.logger.onDebug("read '${it.iso}' bundle with ${it.items.size} items")
+                LingoHubLogger.logger.onDebug(it.items.toString())
             }
             grouped
         } catch (e: Exception) {
-            LingohubLogger.logger.onError("Could not read Lingohub package", e)
+            LingoHubLogger.logger.onError("Could not read LingoHub package", e)
             null
         }
     }
 
     override suspend fun deleteBundle() {
         outputDirectory.listFiles()?.iterator()?.forEach {
-            LingohubLogger.logger.onDebug("deleting: ${it.name}")
+            LingoHubLogger.logger.onDebug("deleting: ${it.name}")
             it.deleteRecursively()
         }
     }

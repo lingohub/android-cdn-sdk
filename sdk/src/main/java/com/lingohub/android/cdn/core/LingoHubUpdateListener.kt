@@ -3,7 +3,7 @@ package com.lingohub.android.cdn.core
 import androidx.annotation.Keep
 
 @Keep
-interface LingohubUpdateListener {
+interface LingoHubUpdateListener {
     /**
      * Called when new data is successfully loaded and applied
      */

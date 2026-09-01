@@ -5,16 +5,16 @@ import kotlinx.coroutines.*
 
 @Keep
 internal class UpdateManager {
-    private val lingohubUpdateListeners = mutableListOf<LingohubUpdateListener>()
+    private val lingohubUpdateListeners = mutableListOf<LingoHubUpdateListener>()
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
-    fun addLoadingStateListener(listener: LingohubUpdateListener) {
+    fun addLoadingStateListener(listener: LingoHubUpdateListener) {
         if (!lingohubUpdateListeners.contains(listener)) {
             lingohubUpdateListeners.add(listener)
         }
     }
 
-    fun removeLoadingStateListener(listener: LingohubUpdateListener) {
+    fun removeLoadingStateListener(listener: LingoHubUpdateListener) {
         lingohubUpdateListeners.remove(listener)
     }
 

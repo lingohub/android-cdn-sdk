@@ -3,7 +3,7 @@ package com.lingohub.android.cdn.data
 import com.lingohub.android.cdn.data.model.Bundle
 import com.lingohub.android.cdn.data.model.isArray
 import com.lingohub.android.cdn.data.model.isText
-import com.lingohub.android.cdn.utils.LingohubLogger
+import com.lingohub.android.cdn.utils.LingoHubLogger
 
 interface IRepository {
     fun getText(key: String): CharSequence? = null
@@ -13,13 +13,13 @@ interface IRepository {
 
 internal class Repository(private val bundle: Bundle) : IRepository {
     override fun getText(key: String): CharSequence? {
-        LingohubLogger.logger.onDebug("loading string: '$key'")
+        LingoHubLogger.logger.onDebug("loading string: '$key'")
         return findString(key)
     }
 
     override fun getPlural(key: String, quantityString: String): CharSequence? {
         val pluralKey = "${key}_$quantityString"
-        LingohubLogger.logger.onDebug("loading plural '$pluralKey'")
+        LingoHubLogger.logger.onDebug("loading plural '$pluralKey'")
         return findString(pluralKey)
     }
 

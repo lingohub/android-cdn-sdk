@@ -1,14 +1,14 @@
 package com.lingohub.android.cdn.data
 
-import com.lingohub.android.cdn.core.Lingohub
-import com.lingohub.android.cdn.core.LingohubSDKError
+import com.lingohub.android.cdn.core.LingoHub
+import com.lingohub.android.cdn.core.LingoHubSDKError
 import com.lingohub.android.cdn.core.UpdateManager
 import com.lingohub.android.cdn.data.model.CdnErrorResponse
-import com.lingohub.android.cdn.utils.LingohubLogger
+import com.lingohub.android.cdn.utils.LingoHubLogger
 import kotlinx.serialization.json.Json
 
-internal class Updater(val scope: ICoroutineScope = LingohubScope()) {
-    private val api = Lingohub.api
+internal class Updater(val scope: ICoroutineScope = LingoHubScope()) {
+    private val api = LingoHub.api
     private val updateManager = UpdateManager.Companion.getInstance()
 
     fun update() {
@@ -19,7 +19,7 @@ internal class Updater(val scope: ICoroutineScope = LingohubScope()) {
 
                 // 204 is the CDN's regular "already up to date" answer, not an error.
                 if (responseCode == 204) {
-                    LingohubLogger.logger.onInfo("translations are up to date, no new bundle available")
+                    LingoHubLogger.logger.onInfo("translations are up to date, no new bundle available")
                     return@launch
                 }
 
@@ -30,8 +30,8 @@ internal class Updater(val scope: ICoroutineScope = LingohubScope()) {
                     // 404 DISTRIBUTION_NOT_FOUND: nothing has been published for this
                     // environment/type yet - a regular no-update state, not a failure.
                     if (responseCode == 404 && CODE_DISTRIBUTION_NOT_FOUND in codes) {
-                        LingohubLogger.logger.onInfo(
-                            "no distribution release available for ${Lingohub.environment.name} yet"
+                        LingoHubLogger.logger.onInfo(
+                            "no distribution release available for ${LingoHub.environment.name} yet"
                         )
                         return@launch
                     }
@@ -40,30 +40,30 @@ internal class Updater(val scope: ICoroutineScope = LingohubScope()) {
                         ?: problem?.detail
                         ?: "no details"
                     val error = when (responseCode) {
-                        400 -> LingohubSDKError("Error loading Lingohub package: invalid request ($details)")
-                        401 -> LingohubSDKError("Error loading Lingohub package: not authorized ($details), check apiKey")
-                        404 -> LingohubSDKError("Error loading Lingohub package: not found ($details)")
-                        429 -> LingohubSDKError("Lingohub usage limit exceeded, translation updates are paused ($details)")
-                        else -> LingohubSDKError("Error loading Lingohub package: invalid response code $responseCode ($details)")
+                        400 -> LingoHubSDKError("Error loading LingoHub package: invalid request ($details)")
+                        401 -> LingoHubSDKError("Error loading LingoHub package: not authorized ($details), check apiKey")
+                        404 -> LingoHubSDKError("Error loading LingoHub package: not found ($details)")
+                        429 -> LingoHubSDKError("LingoHub usage limit exceeded, translation updates are paused ($details)")
+                        else -> LingoHubSDKError("Error loading LingoHub package: invalid response code $responseCode ($details)")
                     }
 
-                    LingohubLogger.logger.onError(error.message ?: "Unknown error")
+                    LingoHubLogger.logger.onError(error.message ?: "Unknown error")
                     updateManager.notifyFailure(error)
                     return@launch
                 }
 
                 val bundleInfo = bundleInfoResponse.body()!!
-                LingohubLogger.logger.onDebug("got bundleInfo: $bundleInfo")
+                LingoHubLogger.logger.onDebug("got bundleInfo: $bundleInfo")
                 val bundle = api.downloadBundle(bundleInfo.filesUrl)
-                LingohubLogger.logger.onDebug("loaded bundle: $bundle")
-                Lingohub.fileHelper.deleteBundle()
-                Lingohub.fileHelper.unzipBundle(bundle.byteStream())
-                Lingohub.onBundleUpdated(bundleInfo)
-                LingohubLogger.logger.onDebug("finished")
+                LingoHubLogger.logger.onDebug("loaded bundle: $bundle")
+                LingoHub.fileHelper.deleteBundle()
+                LingoHub.fileHelper.unzipBundle(bundle.byteStream())
+                LingoHub.onBundleUpdated(bundleInfo)
+                LingoHubLogger.logger.onDebug("finished")
             } catch (t: Throwable) {
-                val errorMessage = "Unknown Error while updating Lingohub package"
-                LingohubLogger.logger.onError(errorMessage, t)
-                val error = LingohubSDKError("$errorMessage: ${t.message}")
+                val errorMessage = "Unknown Error while updating LingoHub package"
+                LingoHubLogger.logger.onError(errorMessage, t)
+                val error = LingoHubSDKError("$errorMessage: ${t.message}")
                 updateManager.notifyFailure(error)
             }
         }
@@ -74,7 +74,7 @@ internal class Updater(val scope: ICoroutineScope = LingohubScope()) {
         return try {
             problemJson.decodeFromString<CdnErrorResponse>(raw)
         } catch (e: Exception) {
-            LingohubLogger.logger.onDebug("could not decode error body: ${e.message}")
+            LingoHubLogger.logger.onDebug("could not decode error body: ${e.message}")
             null
         }
     }

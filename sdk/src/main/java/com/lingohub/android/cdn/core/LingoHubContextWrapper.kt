@@ -5,37 +5,37 @@ import android.content.ContextWrapper
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.util.DisplayMetrics
-import com.lingohub.android.cdn.utils.LingohubLogger
+import com.lingohub.android.cdn.utils.LingoHubLogger
 import com.lingohub.android.cdn.utils.ResourcesUtil
 
-internal class LingohubContextWrapper(base: Context) : ContextWrapper(base) {
+internal class LingoHubContextWrapper(base: Context) : ContextWrapper(base) {
     private var wrappedResources: Resources? = null
 
     override fun getResources(): Resources {
-        LingohubLogger.logger.onDebug("$TAG, getResources called")
+        LingoHubLogger.logger.onDebug("$TAG, getResources called")
         if (wrappedResources == null) {
-            LingohubLogger.logger.onDebug("$TAG, Creating new ResourcesUtil")
+            LingoHubLogger.logger.onDebug("$TAG, Creating new ResourcesUtil")
             wrappedResources = ResourcesUtil(this, super.getResources())
-            LingohubLogger.logger.onDebug("$TAG, Created ResourcesUtil: ${wrappedResources?.javaClass?.simpleName}")
+            LingoHubLogger.logger.onDebug("$TAG, Created ResourcesUtil: ${wrappedResources?.javaClass?.simpleName}")
         }
         return wrappedResources!!
     }
 
     override fun createConfigurationContext(overrideConfiguration: Configuration): Context {
-        LingohubLogger.logger.onDebug("$TAG, createConfigurationContext called with locale: ${overrideConfiguration.locales[0]}")
+        LingoHubLogger.logger.onDebug("$TAG, createConfigurationContext called with locale: ${overrideConfiguration.locales[0]}")
         // Clear the wrapped resources to force recreation with new configuration
         wrappedResources = null
-        return LingohubContextWrapper(super.createConfigurationContext(overrideConfiguration))
+        return LingoHubContextWrapper(super.createConfigurationContext(overrideConfiguration))
     }
 
     fun updateConfiguration(configuration: Configuration, metrics: DisplayMetrics) {
-        LingohubLogger.logger.onDebug("$TAG, updateConfiguration called with locale: ${configuration.locales[0]}")
+        LingoHubLogger.logger.onDebug("$TAG, updateConfiguration called with locale: ${configuration.locales[0]}")
         // Clear the wrapped resources to force recreation with new configuration
         wrappedResources = null
         super.getResources().updateConfiguration(configuration, metrics)
     }
 
     companion object {
-        private const val TAG = "LingohubContextWrapper"
+        private const val TAG = "LingoHubContextWrapper"
     }
 }

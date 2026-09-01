@@ -5,7 +5,7 @@ import android.content.Context
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.os.LocaleList
-import com.lingohub.android.cdn.core.Lingohub
+import com.lingohub.android.cdn.core.LingoHub
 import com.lingohub.android.cdn.data.IRepository
 import com.lingohub.android.cdn.data.model.Environment
 import org.mockito.kotlin.mock
@@ -23,16 +23,16 @@ fun configureResourceGetText(resources: Resources, id: Int, nameId: String, text
     whenever(resources.getText(id)).thenReturn(text)
 }
 
-fun clearLingohub(context: Context) {
-    Lingohub.configure(context, "", Environment.TEST)
+fun clearLingoHub(context: Context) {
+    LingoHub.configure(context, "", Environment.TEST)
 }
 
-fun configureLingohub(context: Context) {
-    Lingohub.configure(context, "", Environment.TEST)
+fun configureLingoHub(context: Context) {
+    LingoHub.configure(context, "", Environment.TEST)
 }
 
 fun configureRepository(repository: IRepository, locale: Locale = Locale.ENGLISH) {
-    Lingohub.addRepository(locale, repository)
+    LingoHub.addRepository(locale, repository)
 }
 
 fun createRepository(nameId: String, quantity: String? = null, text: CharSequence? = null, textArray: Array<CharSequence>? = null): IRepository {
