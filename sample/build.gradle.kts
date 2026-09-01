@@ -35,6 +35,13 @@ android {
         compose = true
         buildConfig = true
     }
+
+    lint {
+        // The Wanderly demo intentionally ships incomplete translations:
+        // missing strings are delivered over the air by LingoHub, and
+        // fallback behavior is part of what the sample demonstrates.
+        disable += "MissingTranslation"
+    }
 }
 
 dependencies {
