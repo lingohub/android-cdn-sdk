@@ -2,7 +2,7 @@ package com.lingohub.android.cdn.data
 
 import androidx.annotation.Keep
 import com.lingohub.android.cdn.core.Lingohub
-import com.lingohub.BuildConfig
+import com.lingohub.android.cdn.BuildConfig
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.InternalSerializationApi
 
