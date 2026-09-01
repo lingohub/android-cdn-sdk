@@ -59,6 +59,17 @@ dependencies {
 `mavenCentral()` is part of the default repository setup of every current Android project, so no extra repository configuration is needed.
 
 > **Migrating from JitPack?** Earlier versions were distributed via JitPack under `com.github.lingohub` coordinates. JitPack is no longer supported — switch to the Maven Central coordinates above and remove the `maven { url 'https://jitpack.io' }` repository if nothing else uses it.
+>
+> The public API was also renamed to the LingoHub brand spelling in 1.1.0. Update your imports and references:
+>
+> | Old (JitPack era)         | New                       |
+> | ------------------------- | ------------------------- |
+> | `Lingohub`                | `LingoHub`                |
+> | `LingohubUpdateListener`  | `LingoHubUpdateListener`  |
+> | `LingohubSDKError`        | `LingoHubSDKError`        |
+> | `LingohubLogLevel`        | `LingoHubLogLevel`        |
+>
+> Package names are unchanged (`com.lingohub.android.cdn.*`), so this is a find-and-replace of the type names.
 
 ## Get your API key
 
@@ -118,7 +129,7 @@ class MainActivity : BaseActivity() {
 }
 ```
 
-Without the delegate, translations still download but are only applied from the next app start.
+The delegate is **mandatory**: it is what routes resource lookups through LingoHub. Activities without it keep showing the strings packaged in your APK — downloaded translations are never applied to them, not even after an app restart.
 
 ### 3. Use your strings as usual
 
@@ -168,7 +179,7 @@ import java.util.Locale
 LingoHub.setLocale(Locale.GERMAN)
 ```
 
-Already-rendered screens don't re-render themselves: recreate the Activity, or drive your Compose UI from a locale state as shown in the [sample app](sample/src/main/java/com/lingohub/android/cdn/example/MainActivity.kt).
+Already-rendered screens don't re-render themselves: recreate the Activity, or drive your Compose UI from a locale state as shown in the [sample app](sample/src/main/java/com/lingohub/android/cdn/example/MainActivity.kt). `LingoHub.getCurrentLocale()` returns the active locale — use it to initialize that state so it survives Activity recreation.
 
 ### Update notifications
 
@@ -268,7 +279,7 @@ Two situations are **not** errors and never reach your listener — the SDK just
 * **Already up to date** — the CDN answered that you have the latest release.
 * **Nothing published yet** — no release exists for your environment and app version (`DISTRIBUTION_NOT_FOUND`). Publish a release in your Distribution to resolve this.
 
-Real failures are delivered to `LingoHubUpdateListener.onFailure(throwable)` as a `LingoHubSDKError` whose message includes the HTTP status and the server's error codes:
+Real failures are delivered to `LingoHubUpdateListener.onFailure(throwable)` as a `LingoHubSDKError` carrying the HTTP status and the server's error codes as structured fields — `statusCode: Int?` and `errorCodes: List<String>` — so you can react without parsing the message:
 
 | Status | Error codes                                          | Meaning and what to do                                                                       |
 | ------ | ---------------------------------------------------- | -------------------------------------------------------------------------------------------- |
@@ -279,14 +290,22 @@ Real failures are delivered to `LingoHubUpdateListener.onFailure(throwable)` as 
 
 ```kotlin
 override fun onFailure(throwable: Throwable) {
-    Log.w("MyApp", "LingoHub update failed: ${throwable.message}")
+    val error = throwable as? LingoHubSDKError
+    when {
+        error?.statusCode == 429 -> scheduleRetryTomorrow()
+        error != null && "CDN_KEY_EXPIRED" in error.errorCodes -> alertKeyRotationNeeded()
+        else -> Log.w("MyApp", "LingoHub update failed: ${throwable.message}")
+    }
 }
 ```
+
+`statusCode` is `null` for local and network errors (no response was received).
 
 ### Troubleshooting
 
 * **`onUpdate` never fires and nothing changes** — most likely no release is published yet for your app version and environment. Publish a release in your Distribution (or mark one as the fallback), and double-check that the `environment` you configure matches the release's environment. Enable `LingoHubLogLevel.FULL` in a debug build to see what the SDK is doing.
-* **Strings update only after an app restart** — your Activities don't use the LingoHub delegate (see [Quick Start step 2](#2-wrap-your-activities)), or you don't recreate on `onUpdate`.
+* **Strings never change, not even after an app restart** — your Activities don't use the LingoHub delegate. It is mandatory; see [Quick Start step 2](#2-wrap-your-activities).
+* **Strings change only after leaving and reopening a screen** — the delegate is in place, but you don't `recreate()` the visible Activity in `onUpdate`.
 * **Error 401** — the CDN key is missing, invalid, or was revoked. The error message contains the reason (for example `CDN_KEY_NOT_FOUND`).
 * **Error 429** — your CDN usage budget is exhausted. Throttle your update checks.
 
@@ -300,7 +319,7 @@ What the SDK touches on the device and network — relevant for your Play Consol
 
 * `SharedPreferences` — stores the installed release ID and app version.
 * Downloaded translation bundles — stored in the app's internal files directory.
-* Each update check sends to the LingoHub CDN: your app's version name, the current app language, the SDK version, and the device's `ANDROID_ID` as an anonymous client identifier for usage metering. It is not linked to user identity and not used for tracking.
+* Each update check sends to the LingoHub CDN: your app's version name, the current app language, the SDK version, and the device's [`ANDROID_ID`](https://developer.android.com/reference/android/provider/Settings.Secure#ANDROID_ID) as the client identifier for usage metering. `ANDROID_ID` is a stable device identifier (scoped to app signing key, user, and device on API 26+), so declare it under **Device or other IDs** in your Play Console *Data safety* form.
 
 ## Sample app
 

@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 @Keep
 @OptIn(InternalSerializationApi::class)
 @Serializable
-data class Item(
+internal data class Item(
     val key: String,
     val type: String,
     val value: String? = null,
@@ -16,5 +16,5 @@ data class Item(
 
 
 
-fun Item.isText() = type == "TEXT"
-fun Item.isArray() = type == "ARRAY"
+internal fun Item.isText() = type == "TEXT"
+internal fun Item.isArray() = type == "ARRAY"

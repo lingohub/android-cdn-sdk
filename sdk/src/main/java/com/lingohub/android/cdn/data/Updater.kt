@@ -39,13 +39,14 @@ internal class Updater(val scope: ICoroutineScope = LingoHubScope()) {
                     val details = codes.takeIf { it.isNotEmpty() }?.joinToString()
                         ?: problem?.detail
                         ?: "no details"
-                    val error = when (responseCode) {
-                        400 -> LingoHubSDKError("Error loading LingoHub package: invalid request ($details)")
-                        401 -> LingoHubSDKError("Error loading LingoHub package: not authorized ($details), check apiKey")
-                        404 -> LingoHubSDKError("Error loading LingoHub package: not found ($details)")
-                        429 -> LingoHubSDKError("LingoHub usage limit exceeded, translation updates are paused ($details)")
-                        else -> LingoHubSDKError("Error loading LingoHub package: invalid response code $responseCode ($details)")
+                    val message = when (responseCode) {
+                        400 -> "Error loading LingoHub package: HTTP 400, invalid request ($details)"
+                        401 -> "Error loading LingoHub package: HTTP 401, not authorized ($details), check apiKey"
+                        404 -> "Error loading LingoHub package: HTTP 404, not found ($details)"
+                        429 -> "LingoHub usage limit exceeded, translation updates are paused (HTTP 429, $details)"
+                        else -> "Error loading LingoHub package: unexpected response (HTTP $responseCode, $details)"
                     }
+                    val error = LingoHubSDKError(message, statusCode = responseCode, errorCodes = codes)
 
                     LingoHubLogger.logger.onError(error.message ?: "Unknown error")
                     updateManager.notifyFailure(error)

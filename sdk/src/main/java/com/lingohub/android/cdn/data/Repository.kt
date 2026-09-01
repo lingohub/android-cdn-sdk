@@ -5,7 +5,7 @@ import com.lingohub.android.cdn.data.model.isArray
 import com.lingohub.android.cdn.data.model.isText
 import com.lingohub.android.cdn.utils.LingoHubLogger
 
-interface IRepository {
+internal interface IRepository {
     fun getText(key: String): CharSequence? = null
     fun getPlural(key: String, quantityString: String): CharSequence? = null
     fun getTextArray(key: String): Array<CharSequence>? = null

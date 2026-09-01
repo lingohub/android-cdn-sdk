@@ -2,6 +2,7 @@ package com.lingohub.android.cdn.data
 
 import com.lingohub.android.cdn.core.BaseContextTest
 import com.lingohub.android.cdn.core.LingoHub
+import com.lingohub.android.cdn.core.LingoHubSDKError
 import com.lingohub.android.cdn.core.LingoHubUpdateListener
 import com.lingohub.android.cdn.data.model.BundleInfo
 import com.lingohub.android.cdn.data.model.BundleMetadata
@@ -18,6 +19,7 @@ import kotlinx.coroutines.test.setMain
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -115,7 +117,10 @@ class UpdaterTest : BaseContextTest() {
             verify(api, never()).downloadBundle(any())
             val captor = argumentCaptor<Throwable>()
             verify(listener).onFailure(captor.capture())
-            assertTrue(captor.firstValue.message!!.contains("usage limit", ignoreCase = true))
+            val error = captor.firstValue as LingoHubSDKError
+            assertTrue(error.message!!.contains("usage limit", ignoreCase = true))
+            assertEquals(429, error.statusCode)
+            assertTrue("USAGE_LIMIT_EXCEEDED" in error.errorCodes)
         }
         LingoHub.removeUpdateListener(listener)
     }

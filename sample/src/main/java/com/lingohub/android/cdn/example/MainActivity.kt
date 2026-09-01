@@ -24,7 +24,8 @@ import java.util.Locale
 
 
 class MainActivity : BaseActivity() {
-    private var currentLocale by mutableStateOf(Locale.ENGLISH)
+    // Initialized from the SDK so the state survives recreate() after updates
+    private var currentLocale by mutableStateOf(LingoHub.getCurrentLocale())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

@@ -4,7 +4,7 @@ import android.util.Log
 import androidx.annotation.Keep
 
 @Keep
-interface ILingoHubLogger {
+internal interface ILingoHubLogger {
     fun onInfo(message: String)
     fun onError(error: String, cause: Throwable? = null)
     fun onDebug(message: String)
@@ -43,7 +43,7 @@ private class LingoHubLoggerImpl(private val logLevel: LingoHubLogLevel = LingoH
     }
 }
 
-object LingoHubLogger {
+internal object LingoHubLogger {
     lateinit var logger: ILingoHubLogger
 
     internal var logLevel: LingoHubLogLevel = LingoHubLogLevel.NONE

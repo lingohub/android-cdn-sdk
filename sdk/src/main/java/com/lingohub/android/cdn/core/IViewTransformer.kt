@@ -6,7 +6,7 @@ import android.view.View
 import androidx.annotation.AttrRes
 import androidx.annotation.StringRes
 
-interface IViewTransformer {
+internal interface IViewTransformer {
 
     fun retext(view: View, attributeSet: AttributeSet): View
 

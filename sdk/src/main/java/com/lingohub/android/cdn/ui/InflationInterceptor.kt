@@ -7,7 +7,7 @@ import com.lingohub.android.cdn.core.TextViewTransformer
 import dev.b3nedikt.viewpump.InflateResult
 import dev.b3nedikt.viewpump.Interceptor
 
-object InflationInterceptor : Interceptor {
+internal object InflationInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): InflateResult {
         return chain.proceed(chain.request()).let { inflateResult ->
             inflateResult.copy(view = retextView(inflateResult.view, inflateResult.attrs))

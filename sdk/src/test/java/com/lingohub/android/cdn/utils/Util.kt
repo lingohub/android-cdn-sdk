@@ -31,11 +31,11 @@ fun configureLingoHub(context: Context) {
     LingoHub.configure(context, "", Environment.TEST)
 }
 
-fun configureRepository(repository: IRepository, locale: Locale = Locale.ENGLISH) {
+internal fun configureRepository(repository: IRepository, locale: Locale = Locale.ENGLISH) {
     LingoHub.addRepository(locale, repository)
 }
 
-fun createRepository(nameId: String, quantity: String? = null, text: CharSequence? = null, textArray: Array<CharSequence>? = null): IRepository {
+internal fun createRepository(nameId: String, quantity: String? = null, text: CharSequence? = null, textArray: Array<CharSequence>? = null): IRepository {
     return object : IRepository {
         override fun getText(key: String) = text.takeIf { key == nameId }
 

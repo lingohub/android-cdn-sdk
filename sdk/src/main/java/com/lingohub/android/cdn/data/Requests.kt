@@ -10,7 +10,7 @@ import kotlinx.serialization.InternalSerializationApi
 @Keep
 @OptIn(InternalSerializationApi::class)
 @Serializable
-data class PackageRequest(
+internal data class PackageRequest(
     val distributionEnvironment: String = LingoHub.environment.name,
     val distributionType: String = "MOBILE_SDK_ANDROID",
     val clientVersion: String = LingoHub.appVersionCode,

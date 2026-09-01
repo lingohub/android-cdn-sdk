@@ -118,6 +118,17 @@ object LingoHub {
         LocaleProvider.currentLocale = locale
     }
 
+    /**
+     * The locale currently used to resolve translations. Falls back to the
+     * device locale until [setLocale] is called. Use it to restore UI state
+     * after an Activity recreation.
+     */
+    @Keep
+    @JvmStatic
+    fun getCurrentLocale(): Locale {
+        return LocaleProvider.currentLocale
+    }
+
     internal fun stringRequested(key: String, string: String) {
         SnapKitHelper.addString(key, string)
     }
