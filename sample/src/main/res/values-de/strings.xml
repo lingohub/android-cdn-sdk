@@ -1,5 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-  <string name="app_name">LingoHub</string>
-  <string name="title">Diese App demonstriert die Integration des LingoHub SDK für Android</string>
-  <string name="header">Willkommen bei LingoHub</string>
+    <string name="app_tagline">Plant Reisen gemeinsam. Streitet später über den Reiseplan.</string>
+    <string name="app_context_comparison">Plane deine nächste Reise nach %1$s mit Wanderly. Erstelle den Reiseplan, lade deine Freunde ein und geh auf Entdeckungstour.</string>
+    <string name="nav_trips">Meine Reisen</string>
+    <string name="nav_explore">Entdecken</string>
+    <string name="nav_profile">Profil</string>
+    <string name="trips_greeting">Willkommen zurück! Wohin geht\'s als Nächstes?</string>
+    <string name="trips_summary">Dein Reiseplan für %1$s beginnt am %2$s.</string>
+    <string name="trips_share_hint">Teile deinen Reiseplan — Freunde können Aktivitäten vorschlagen und darüber abstimmen.</string>
+    <string name="booking_confirmed">Deine Buchung ist bestätigt.</string>
+    <string name="booking_cancel_warning">Wer einen Trip weniger als 24 Stunden vor Abflug storniert, zahlt womöglich eine Gebühr.</string>
+    <string name="booking_pay">Jetzt kostenpflichtig buchen</string>
+    <string name="checkout_total">Gesamt: %1$s</string>
+    <string name="errors_offline">Du bist offline. Selbst Wanderly kann das Internet nicht umfliegen.</string>
+    <string name="errors_payment_declined">Deine Zahlung wurde abgelehnt. Versuch es mit einer anderen Karte.</string>
+    <string name="notifications_upgrade">Sie wurden hochgestuft, %1$s! Genießen Sie die Beinfreiheit.</string>
+    <!-- Demo chrome, not part of the Wanderly content. -->
+    <string name="action_check_updates">Nach Updates suchen</string>
 </resources>

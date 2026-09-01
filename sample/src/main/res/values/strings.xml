@@ -1,5 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">LingoHub</string>
-    <string name="title">This app demonstrates the integration of LingoHub SDK for android</string>
-    <string name="header"> Welcome to LingoHub</string>
+    <!-- The product name — a brand, never translated.<lh>{"labels":["ui"],"not_translatable":true}</lh> -->
+    <string name="app_name" translatable="false">Wanderly</string>
+    <!-- Shown on the login screen under the logo.<lh>{"labels":["ui"]}</lh> -->
+    <string name="app_tagline">Plan trips together. Argue about the itinerary later.</string>
+    <!-- The source text used by the onboarding LINA comparison.<lh>{"labels":["tour"]}</lh> -->
+    <string name="app_context_comparison">Plan your next trip to %1$s with Wanderly. Create the itinerary, invite your friends, and start exploring.</string>
+    <!-- Main navigation entry.<lh>{"labels":["ui"]}</lh> -->
+    <string name="nav_trips">My trips</string>
+    <!-- Main navigation entry.<lh>{"labels":["ui"]}</lh> -->
+    <string name="nav_explore">Explore</string>
+    <!-- Main navigation entry.<lh>{"labels":["ui"]}</lh> -->
+    <string name="nav_profile">Profile</string>
+    <!-- Home screen greeting after login. {{userName}} is the traveler's first name.<lh>{"labels":["ui"]}</lh> -->
+    <string name="trips_greeting">Welcome back, %1$s! Where to next?</string>
+    <!-- Trip card subtitle. {{destination}} is a city name, {{startDate}} a localized date.<lh>{"labels":["ui"]}</lh> -->
+    <string name="trips_summary">Your itinerary for %1$s starts on %2$s.</string>
+    <plurals name="trips_members">
+        <item quantity="one">%1$d traveler</item>
+        <item quantity="other">%1$d travelers</item>
+    </plurals>
+    <!-- Button on the empty state and in the trips list.<lh>{"labels":["ui"]}</lh> -->
+    <string name="trips_create">Create trip</string>
+    <!-- Hint below the share button. Keep the bold tag around 'activities'.<lh>{"labels":["ui"]}</lh> -->
+    <string name="trips_share_hint">Share your itinerary — friends can suggest <b>activities</b> and vote on them.</string>
+    <!-- Empty state of the trips list.<lh>{"labels":["ui"]}</lh> -->
+    <string name="trips_empty">No trips yet. The world is patient, but only barely.</string>
+    <!-- Confirmation toast after checkout.<lh>{"labels":["checkout"]}</lh> -->
+    <string name="booking_confirmed">Your booking is confirmed.</string>
+    <!-- Subject line of the confirmation email.<lh>{"labels":["checkout"]}</lh> -->
+    <string name="booking_confirmed_email">Your booking is confirmed — see you at the gate!</string>
+    <!-- Shown in the cancellation dialog.<lh>{"labels":["checkout"]}</lh> -->
+    <string name="booking_cancel_warning">Cancelling a trip less than 24 hours before departure may incur a fee.</string>
+    <!-- Primary checkout button. The button is narrow — keep it short.<lh>{"qc":{"max":"12"},"labels":["checkout"]}</lh> -->
+    <string name="booking_pay">Pay now</string>
+    <!-- Order summary line. {{amount}} is a formatted currency value.<lh>{"labels":["checkout"]}</lh> -->
+    <string name="checkout_total">Total: %1$s</string>
+    <!-- Footer of the checkout screen. Keep the link tag intact.<lh>{"labels":["checkout"]}</lh> -->
+    <string name="checkout_support">Questions? <a href="%1$s">Talk to a human</a>.</string>
+    <!-- Full-screen error when the connection drops.<lh>{"labels":["errors"]}</lh> -->
+    <string name="errors_offline">You\'re offline. Even Wanderly can\'t route around the internet.</string>
+    <!-- Inline error on the payment form.<lh>{"labels":["errors"]}</lh> -->
+    <string name="errors_payment_declined">Your payment was declined. Try another card.</string>
+    <!-- Push notification for a seat upgrade.<lh>{"labels":["ui"]}</lh> -->
+    <string name="notifications_upgrade">You\'ve been upgraded, %1$s! Enjoy the legroom.</string>
+    <!-- Demo chrome, not part of the Wanderly content. -->
+    <string name="action_check_updates">Check for updates</string>
 </resources>
