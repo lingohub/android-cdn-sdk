@@ -46,7 +46,11 @@ private class LingohubLoggerImpl(private val logLevel: LingohubLogLevel = Lingoh
 object LingohubLogger {
     lateinit var logger: ILingohubLogger
 
+    internal var logLevel: LingohubLogLevel = LingohubLogLevel.NONE
+        private set
+
     fun init(logLevel: LingohubLogLevel) {
+        this.logLevel = logLevel
         logger = LingohubLoggerImpl(logLevel)
     }
 }

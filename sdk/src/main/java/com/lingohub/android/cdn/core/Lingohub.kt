@@ -38,7 +38,6 @@ object Lingohub {
     internal lateinit var api: Api
     internal lateinit var updater: Updater
     internal lateinit var preferences: IPreferences
-    internal lateinit var appLanguage: String
     internal lateinit var languages: String
     internal lateinit var deviceId: String
     internal lateinit var fileHelper: IFileHelper
@@ -159,7 +158,6 @@ object Lingohub {
 
     private fun readDeviceLocales(context: Context) {
         languages = ConfigurationCompat.getLocales(context.resources.configuration).toLanguageTags()
-        appLanguage = LocaleProvider.currentLocale.language
     }
 
     internal fun getRepository(locale: Locale): IRepository {
