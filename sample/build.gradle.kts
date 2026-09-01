@@ -6,12 +6,12 @@ plugins {
 
 android {
     namespace = "com.lingohub.android.cdn.example"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.lingohub.android.cdn.example"
         minSdk = 27
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "3.2.1"
 

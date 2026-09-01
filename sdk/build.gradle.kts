@@ -6,12 +6,15 @@ plugins {
     id("org.jetbrains.kotlin.plugin.parcelize")
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
-    id("maven-publish")
-    alias(libs.plugins.signing)
+    alias(libs.plugins.maven.publish)
+}
+
+val sdkVersion: String = rootProject.file("version.properties").inputStream().use { stream ->
+    Properties().apply { load(stream) }.getProperty("VERSION_NAME") ?: "0.0.0"
 }
 
 android {
-    compileSdk = 34
+    compileSdk = 36
     namespace = "com.lingohub.android.cdn"
 
     buildFeatures {
@@ -21,15 +24,17 @@ android {
 
     defaultConfig {
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+        buildConfigField("String", "SDK_VERSION_NAME", "\"$sdkVersion\"")
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Library AARs are published unminified; consumers' R8 shrinks them
+            // using the consumer rules shipped in the AAR.
+            isMinifyEnabled = false
         }
     }
 
@@ -47,13 +52,6 @@ android {
 
     composeOptions {
         kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
-    }
-
-    publishing {
-        singleVariant("release") {
-            withSourcesJar()
-            withJavadocJar()
-        }
     }
 }
 
@@ -92,47 +90,42 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core.v330)
 }
 
-afterEvaluate {
-    publishing {
-        publications {
-            create<MavenPublication>("release") {
-                from(components["release"])
+mavenPublishing {
+    publishToMavenCentral()
 
-              groupId = "com.lingohub.android.cdn"
-              version = rootProject.file("version.properties").inputStream().use {
-                  val props = Properties()
-                  props.load(it)
-                  props.getProperty("VERSION_NAME") ?: "0.0.0"
-              }
+    // Sign when a key is provided (in CI via ORG_GRADLE_PROJECT_signingInMemoryKey);
+    // local builds without a key skip signing so publishToMavenLocal keeps working.
+    if (providers.gradleProperty("signingInMemoryKey").isPresent) {
+        signAllPublications()
+    }
 
-              pom {
-                name.set("Lingohub Android CDN SDK")
-                description.set("A lightweight Android SDK that retrieves up-to-date translations from Lingohub, enabling real-time multilingual content delivery without requiring app updates.")
-                url.set("https://github.com/lingohub/android-cdn-sdk")
+    coordinates("com.lingohub", "android-cdn-sdk", sdkVersion)
 
-                licenses {
-                    license {
-                        name.set("The Apache License, Version 2.0")
-                        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
-                    }
-                }
+    pom {
+        name.set("Lingohub Android CDN SDK")
+        description.set("A lightweight Android SDK that retrieves up-to-date translations from Lingohub, enabling real-time multilingual content delivery without requiring app updates.")
+        url.set("https://github.com/lingohub/android-cdn-sdk")
 
-                developers {
-                    developer {
-                        id.set("lingohub")
-                        name.set("lingohub GmbH")
-                        email.set("office@lingohub.com")
-                    }
-                }
-
-                scm {
-                    connection.set("scm:git:https://github.com/lingohub/android-cdn-sdk.git")
-                    developerConnection.set("scm:git:git@github.com:lingohub/android-cdn-sdk.git")
-                    url.set("https://github.com/lingohub/android-cdn-sdk")
-                }
+        licenses {
+            license {
+                name.set("The Apache License, Version 2.0")
+                url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
             }
         }
-      }
+
+        developers {
+            developer {
+                id.set("lingohub")
+                name.set("lingohub GmbH")
+                email.set("office@lingohub.com")
+            }
+        }
+
+        scm {
+            connection.set("scm:git:https://github.com/lingohub/android-cdn-sdk.git")
+            developerConnection.set("scm:git:git@github.com:lingohub/android-cdn-sdk.git")
+            url.set("https://github.com/lingohub/android-cdn-sdk")
+        }
     }
 }
 

@@ -1,12 +1,7 @@
-package com.lingohub
+package com.lingohub.android.cdn.data
 
 import com.lingohub.android.cdn.core.BaseContextTest
 import com.lingohub.android.cdn.core.Lingohub
-import com.lingohub.android.cdn.data.Api
-import com.lingohub.android.cdn.data.ICoroutineScope
-import com.lingohub.android.cdn.data.IFileHelper
-import com.lingohub.android.cdn.data.IPreferences
-import com.lingohub.android.cdn.data.Updater
 import com.lingohub.android.cdn.data.model.BundleInfo
 import com.lingohub.android.cdn.data.model.BundleMetadata
 import com.lingohub.android.cdn.utils.configureLingohub
@@ -15,9 +10,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.TestCoroutineDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.runBlockingTest
+import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.amshove.kluent.*
@@ -37,8 +32,7 @@ class UpdaterTest : BaseContextTest() {
     private val preferences: IPreferences = mock()
     private val fileHelper: IFileHelper = mock()
 
-    private val testDispatcher = TestCoroutineDispatcher()
-    private val managedCoroutineScope = TestCoroutineScope(testDispatcher)
+    private val testDispatcher = UnconfinedTestDispatcher()
 
     @BeforeEach
     override fun setup() {
@@ -48,13 +42,13 @@ class UpdaterTest : BaseContextTest() {
         Lingohub.api = api
         Lingohub.preferences = preferences
         Lingohub.fileHelper = fileHelper
-        Lingohub.updater = Updater(managedCoroutineScope)
+        Lingohub.updater = Updater(BlockingCoroutineScope())
     }
 
     @Test
     fun `Download api call invoked upon receiving bundleInfo`() {
         val mockedBundle = getMockedBundleInfo()
-        runBlockingTest {
+        runTest {
             When calling api.getBundleInfo() doReturn mockedBundle
             Lingohub.update()
             verify(api, times(1)).downloadBundle(mockedBundle.body()!!.filesUrl)
@@ -66,7 +60,7 @@ class UpdaterTest : BaseContextTest() {
         val downloadResponse = "test".toResponseBody()
         val mockedBundle = getMockedBundleInfo()
 
-        runBlockingTest {
+        runTest {
             When calling api.getBundleInfo() doReturn mockedBundle
             When calling api.downloadBundle(any()) doReturn downloadResponse
             Lingohub.updater.update()
@@ -78,7 +72,7 @@ class UpdaterTest : BaseContextTest() {
     fun `Bundle not deleted when app not updated`() {
         When calling preferences.getBundleMetadata() doReturn BundleMetadata("identifier", "4")
         Lingohub.appVersionCode = "4"
-        runBlockingTest {
+        runTest {
             Lingohub.checkIfUpdated()
             verify(fileHelper, never()).deleteBundle()
         }
@@ -88,7 +82,7 @@ class UpdaterTest : BaseContextTest() {
     fun `Bundle deleted on app update`() {
         When calling preferences.getBundleMetadata() doReturn BundleMetadata("identifier", "19")
         Lingohub.appVersionCode = "20"
-        runBlockingTest {
+        runTest {
             Lingohub.checkIfUpdated()
             verify(fileHelper, times(1)).deleteBundle()
         }
@@ -97,18 +91,6 @@ class UpdaterTest : BaseContextTest() {
     @AfterEach
     override fun tearDown() {
         Dispatchers.resetMain()
-        testDispatcher.cleanupTestCoroutines()
-    }
-
-    class TestCoroutineScope(private val dispatcher: TestCoroutineDispatcher) : ICoroutineScope {
-        override val coroutineContext: CoroutineContext = dispatcher
-
-        override fun launch(block: suspend CoroutineScope.() -> Unit): Job {
-            return runBlocking(dispatcher) {
-                block()
-                Job()
-            }
-        }
     }
 
     private fun getMockedBundleInfo(): Response<BundleInfo> {
@@ -117,7 +99,20 @@ class UpdaterTest : BaseContextTest() {
             createdAt = "2022-01-01T00:00:00.000Z",
             name = "Version 1",
             filesUrl = "url",
-
         ))
+    }
+}
+
+/**
+ * Executes launched blocks synchronously so tests can verify side effects immediately.
+ */
+private class BlockingCoroutineScope : ICoroutineScope {
+    override val coroutineContext: CoroutineContext = Dispatchers.Unconfined
+
+    override fun launch(block: suspend CoroutineScope.() -> Unit): Job {
+        return runBlocking {
+            block()
+            Job()
+        }
     }
 }
