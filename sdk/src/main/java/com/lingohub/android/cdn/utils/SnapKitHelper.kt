@@ -1,7 +1,6 @@
 package com.lingohub.android.cdn.utils
 
 import androidx.annotation.Keep
-import okhttp3.internal.toImmutableMap
 
 /**
  * This class is used by the SnapKit SDK
@@ -21,7 +20,7 @@ internal object SnapKitHelper {
     }
 
     fun getStringsKeyMap(): Map<String, String> {
-        return stringsKeyMap.toImmutableMap()
+        return stringsKeyMap.toMap()
     }
 
     fun addString(key: String, string: String) {

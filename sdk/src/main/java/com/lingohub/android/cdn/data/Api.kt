@@ -1,6 +1,6 @@
 package com.lingohub.android.cdn.data
 
-import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.lingohub.android.cdn.core.Lingohub
 import com.lingohub.android.cdn.data.model.BundleInfo
 import com.lingohub.android.cdn.utils.LingohubLogger

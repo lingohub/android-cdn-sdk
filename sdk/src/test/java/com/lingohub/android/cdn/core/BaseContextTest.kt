@@ -14,11 +14,11 @@ import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
-import org.amshove.kluent.*
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
-import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 
 @OptIn(ExperimentalCoroutinesApi::class)
 abstract class BaseContextTest {
@@ -28,24 +28,24 @@ abstract class BaseContextTest {
     val baseResources: Resources = mock()
     private var configuration: Configuration = createConfiguration()
     private val sharedPreferences: SharedPreferences = mock()
-    
+
     private val testDispatcher: TestDispatcher = UnconfinedTestDispatcher()
 
     @BeforeEach
     @CallSuper
     open fun setup() {
         Dispatchers.setMain(testDispatcher)
-        
-        When calling baseContext.packageManager doReturn packageManger
-        When calling baseContext.packageName doReturn ""
-        When calling baseContext.resources doReturn baseResources
-        When calling baseResources.configuration doReturn configuration
-        When calling baseContext.getSharedPreferences(any(), any()) doReturn sharedPreferences
-        When calling packageManger.getPackageInfo("", 0) doReturn packageInfo
-        When calling packageInfo.longVersionCode doReturn 0L
+
+        whenever(baseContext.packageManager).thenReturn(packageManger)
+        whenever(baseContext.packageName).thenReturn("")
+        whenever(baseContext.resources).thenReturn(baseResources)
+        whenever(baseResources.configuration).thenReturn(configuration)
+        whenever(baseContext.getSharedPreferences(any(), any())).thenReturn(sharedPreferences)
+        whenever(packageManger.getPackageInfo("", 0)).thenReturn(packageInfo)
+        whenever(packageInfo.longVersionCode).thenReturn(0L)
         packageInfo.versionName = ""
     }
-    
+
     @AfterEach
     @CallSuper
     open fun tearDown() {
