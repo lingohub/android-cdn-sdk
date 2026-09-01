@@ -6,6 +6,7 @@ import com.lingohub.android.cdn.core.UpdateManager
 import com.lingohub.android.cdn.data.model.CdnErrorResponse
 import com.lingohub.android.cdn.utils.LingoHubLogger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import retrofit2.HttpException
@@ -98,8 +99,12 @@ internal class Updater(val scope: ICoroutineScope = LingoHubScope()) {
         }
 
         val bundle = api.downloadBundle(downloadUrl.toString())
-        LingoHub.fileHelper.installBundle(bundle.byteStream())
-        LingoHub.onBundleUpdated(bundleInfo)
+        // The download stays outside the lock; the disk transition (install,
+        // refresh, metadata) must not interleave with the startup purge/refresh.
+        LingoHub.bundleTransitionLock.withLock {
+            LingoHub.fileHelper.installBundle(bundle.byteStream())
+            LingoHub.onBundleUpdated(bundleInfo)
+        }
         LingoHubLogger.logger.onDebug("finished")
     }
 

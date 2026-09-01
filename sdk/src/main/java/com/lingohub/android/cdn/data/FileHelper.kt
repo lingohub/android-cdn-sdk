@@ -48,6 +48,14 @@ internal class FileHelper(
         }
         try {
             extractInto(stagingDir, inputStream)
+            // Decode the staged bundle before touching the live directory, so
+            // a release with malformed content can never destroy the last
+            // known-good bundle.
+            try {
+                parseBundleDir(stagingDir)
+            } catch (e: Exception) {
+                throw IOException("Bundle archive rejected: content failed to parse", e)
+            }
             activateStagedBundle()
         } catch (e: Exception) {
             stagingDir.deleteRecursively()
@@ -130,21 +138,7 @@ internal class FileHelper(
     override suspend fun readBundle(): List<Bundle>? = withContext(Dispatchers.IO) {
         recoverInterruptedInstall()
         try {
-            val bundleFiles = bundleDir.listFiles()?.filter { it.isFile }.orEmpty()
-            LingoHubLogger.logger.onDebug("found files: ${bundleFiles.map { it.name }}")
-
-            val files = bundleFiles.map {
-                it.bufferedReader().use { reader -> reader.readText() }.let { jsonStr ->
-                    json.decodeFromString<List<Bundle>>(jsonStr)
-                }
-            }.flatten()
-
-            val grouped = files.groupBy { it.iso }.map {
-                val iso = it.key
-                val items = it.value.flatMap { bundle -> bundle.items }
-                Bundle(iso, items)
-            }
-
+            val grouped = parseBundleDir(bundleDir)
             grouped.forEach {
                 LingoHubLogger.logger.onDebug("read '${it.iso}' bundle with ${it.items.size} items")
             }
@@ -155,8 +149,29 @@ internal class FileHelper(
         }
     }
 
+    private fun parseBundleDir(dir: File): List<Bundle> {
+        val bundleFiles = dir.listFiles()?.filter { it.isFile }.orEmpty()
+        LingoHubLogger.logger.onDebug("found files: ${bundleFiles.map { it.name }}")
+
+        val files = bundleFiles.map {
+            it.bufferedReader().use { reader -> reader.readText() }.let { jsonStr ->
+                json.decodeFromString<List<Bundle>>(jsonStr)
+            }
+        }.flatten()
+
+        return files.groupBy { it.iso }.map {
+            val iso = it.key
+            val items = it.value.flatMap { bundle -> bundle.items }
+            Bundle(iso, items)
+        }
+    }
+
     override suspend fun deleteBundle(): Unit = withContext(Dispatchers.IO) {
-        LingoHubLogger.logger.onDebug("deleting bundle directory: ${bundleDir.name}")
+        LingoHubLogger.logger.onDebug("deleting bundle directories")
+        // The recovery directories must go too: otherwise readBundle() could
+        // resurrect a purged bundle from lingohub-old after an app update.
+        stagingDir.deleteRecursively()
+        backupDir.deleteRecursively()
         bundleDir.deleteRecursively()
     }
 

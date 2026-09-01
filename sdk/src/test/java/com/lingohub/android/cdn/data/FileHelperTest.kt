@@ -117,6 +117,33 @@ class FileHelperTest {
     }
 
     @Test
+    fun `installBundle rejects bundles whose JSON content does not parse`() = runTest {
+        fileHelper.installBundle(zipWithBundle("en", "greeting", "Hello"))
+
+        val badZip = createTestZip(mapOf("en.json" to "this is not bundle json"))
+        assertInstallFails(badZip)
+
+        val result = fileHelper.readBundle()
+        assertEquals("Hello", result?.single()?.items?.single()?.value, "malformed release must not replace the last known-good bundle")
+        assertFalse(stagingDir.exists(), "staging leftovers must be cleaned up")
+    }
+
+    @Test
+    fun `deleteBundle removes the recovery directories too`() = runTest {
+        fileHelper.installBundle(zipWithBundle("en", "greeting", "Hello"))
+
+        // Interrupted-install state plus a stale staging leftover.
+        assertTrue(bundleDir.renameTo(backupDir))
+        stagingDir.mkdirs()
+
+        fileHelper.deleteBundle()
+
+        assertEquals(emptyList<Bundle>(), fileHelper.readBundle(), "purged bundle must not be resurrected from lingohub-old")
+        assertFalse(backupDir.exists())
+        assertFalse(stagingDir.exists())
+    }
+
+    @Test
     fun `failed install preserves the previous bundle`() = runTest {
         fileHelper.installBundle(zipWithBundle("en", "greeting", "Hello"))
 

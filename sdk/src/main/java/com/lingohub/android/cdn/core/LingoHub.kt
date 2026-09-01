@@ -25,6 +25,8 @@ import com.lingohub.android.cdn.data.Preferences
 import com.lingohub.android.cdn.data.Repository
 import com.lingohub.android.cdn.data.Updater
 import dev.b3nedikt.viewpump.ViewPump
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.util.*
 
 @Keep
@@ -43,6 +45,11 @@ object LingoHub {
 
     private val repositoryMap = mutableMapOf<Locale, IRepository>()
     private val emptyRepository: IRepository = object : IRepository {}
+
+    // Serializes every bundle state transition (app-version purge, initial
+    // refresh, install + refresh after an update) so their disk operations
+    // cannot interleave and an older snapshot can never be published last.
+    internal val bundleTransitionLock = Mutex()
 
     // Add UpdateManager instance
     private val updateManager by lazy { UpdateManager.getInstance() }
@@ -74,10 +81,13 @@ object LingoHub {
 
         ViewPump.init(InflationInterceptor)
 
-        checkIfUpdated()
-
         bundleHelper = BundleHelper()
-        updater.scope.launch { bundleHelper.refresh() }
+        updater.scope.launch {
+            bundleTransitionLock.withLock {
+                purgeBundleOnAppUpdate()
+                bundleHelper.refresh()
+            }
+        }
     }
 
     @Keep
@@ -143,7 +153,7 @@ object LingoHub {
         updateManager.notifyDataChanged()
     }
 
-    internal fun checkIfUpdated() {
+    internal suspend fun purgeBundleOnAppUpdate() {
         val savedMetadata = preferences.getBundleMetadata()
         val bundleAppVersion = savedMetadata?.appVersion
         val currentAppVersion = appVersionName
@@ -153,8 +163,11 @@ object LingoHub {
         if (bundleAppVersion != null && bundleAppVersion != currentAppVersion) {
             LingoHubLogger.logger.onInfo("bundle update required due to app version change $bundleAppVersion to $currentAppVersion")
             LingoHubLogger.logger.onInfo("app has been updated to $currentAppVersion, clearing local bundle (for app version $bundleAppVersion)")
+            // Clear the metadata before the first suspension point so an
+            // update started right after configure() reports no stale
+            // clientRelease to the server.
             preferences.clearBundleMetadata()
-            updater.scope.launch { fileHelper.deleteBundle() }
+            fileHelper.deleteBundle()
         }
     }
 

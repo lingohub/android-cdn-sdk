@@ -33,42 +33,10 @@ internal interface Api {
 
     companion object {
         fun build(): Api {
-            val client = run {
-                val loggingInterceptor =
-                    HttpLoggingInterceptor { message -> LingoHubLogger.logger.onDebug(message) }
-
-                // Only pay the body-buffering cost when logging is actually enabled.
-                loggingInterceptor.setLevel(
-                    if (LingoHubLogger.logLevel == LingoHubLogLevel.FULL) {
-                        HttpLoggingInterceptor.Level.BODY
-                    } else {
-                        HttpLoggingInterceptor.Level.NONE
-                    }
-                )
-                // The bearer key must never end up in logcat, even at FULL.
-                loggingInterceptor.redactHeader("Authorization")
-                OkHttpClient.Builder()
-                    .addInterceptor(Interceptor { chain ->
-                        val request = chain.request()
-                        val newRequest = if (request.tag(Invocation::class.java)
-                                ?.method()?.isAnnotationPresent(Authenticated::class.java) == true) {
-                            // Only add Authorization for requests marked with @Authenticated
-                            request.newBuilder()
-                                .addHeader("Authorization", "Bearer ${requireNotNull(LingoHub.apiKey)}")
-                                .build()
-                        } else {
-                            request
-                        }
-                        chain.proceed(newRequest)
-                    })
-                    .addInterceptor(loggingInterceptor)
-                    .build()
-            }
-
             val contentType = "application/json".toMediaType()
 
             return Retrofit.Builder()
-                .client(client)
+                .client(buildHttpClient())
                 .baseUrl("https://cdn.lingohub.com/")
                 .addConverterFactory(Json {
                     ignoreUnknownKeys = true
@@ -76,5 +44,51 @@ internal interface Api {
                 }.asConverterFactory(contentType))
                 .build().create(Api::class.java)
         }
+
+        internal fun buildHttpClient(): OkHttpClient {
+            val loggingInterceptor =
+                HttpLoggingInterceptor { message -> LingoHubLogger.logger.onDebug(sanitizeLogLine(message)) }
+
+            // Only pay the body-buffering cost when logging is actually enabled.
+            loggingInterceptor.setLevel(
+                if (LingoHubLogger.logLevel == LingoHubLogLevel.FULL) {
+                    HttpLoggingInterceptor.Level.BODY
+                } else {
+                    HttpLoggingInterceptor.Level.NONE
+                }
+            )
+            // The bearer key must never end up in logcat, even at FULL.
+            loggingInterceptor.redactHeader("Authorization")
+            return OkHttpClient.Builder()
+                .addInterceptor(Interceptor { chain ->
+                    val request = chain.request()
+                    val newRequest = if (request.tag(Invocation::class.java)
+                            ?.method()?.isAnnotationPresent(Authenticated::class.java) == true) {
+                        // Only add Authorization for requests marked with @Authenticated
+                        request.newBuilder()
+                            .addHeader("Authorization", "Bearer ${requireNotNull(LingoHub.apiKey)}")
+                            .build()
+                    } else {
+                        request
+                    }
+                    chain.proceed(newRequest)
+                })
+                .addInterceptor(loggingInterceptor)
+                // Never follow a redirect that changes scheme: the HTTPS
+                // requirement on the bundle URL must hold across redirects too.
+                .followSslRedirects(false)
+                .build()
+        }
     }
 }
+
+private val urlQueryRegex = Regex("(https?://[^\\s\"'?]+)\\?[^\\s\"']*")
+
+/**
+ * Strips query strings from URLs in HTTP log lines. Presigned bundle URLs
+ * carry their credentials as query parameters and appear both in the check
+ * response body and in the download request line, so header redaction alone
+ * is not enough.
+ */
+internal fun sanitizeLogLine(message: String): String =
+    urlQueryRegex.replace(message) { "${it.groupValues[1]}?<redacted>" }

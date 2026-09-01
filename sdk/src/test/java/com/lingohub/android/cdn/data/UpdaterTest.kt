@@ -186,7 +186,7 @@ class UpdaterTest : BaseContextTest() {
         whenever(preferences.getBundleMetadata()).thenReturn(BundleMetadata("identifier", "4"))
         LingoHub.appVersionName = "4"
         runTest {
-            LingoHub.checkIfUpdated()
+            LingoHub.purgeBundleOnAppUpdate()
             verify(fileHelper, never()).deleteBundle()
         }
     }
@@ -196,7 +196,8 @@ class UpdaterTest : BaseContextTest() {
         whenever(preferences.getBundleMetadata()).thenReturn(BundleMetadata("identifier", "19"))
         LingoHub.appVersionName = "20"
         runTest {
-            LingoHub.checkIfUpdated()
+            LingoHub.purgeBundleOnAppUpdate()
+            verify(preferences, times(1)).clearBundleMetadata()
             verify(fileHelper, times(1)).deleteBundle()
         }
     }
