@@ -40,7 +40,7 @@ The SDK is available on [Maven Central](https://central.sonatype.com/artifact/co
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("com.lingohub:android-cdn-sdk:1.1.0")
+    implementation("com.lingohub:android-cdn-sdk:1.2.0")
 }
 ```
 
@@ -50,7 +50,7 @@ dependencies {
 ```groovy
 // build.gradle
 dependencies {
-    implementation 'com.lingohub:android-cdn-sdk:1.1.0'
+    implementation 'com.lingohub:android-cdn-sdk:1.2.0'
 }
 ```
 
