@@ -1,8 +1,6 @@
 package com.lingohub.android.cdn.core
 
-import android.annotation.SuppressLint
 import android.content.Context
-import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.annotation.Keep
 import androidx.appcompat.app.AppCompatDelegate
@@ -38,7 +36,11 @@ object LingoHub {
     internal lateinit var api: Api
     internal lateinit var updater: Updater
     internal lateinit var preferences: IPreferences
-    internal lateinit var deviceId: String
+
+    // Random per-install identifier sent as clientUser for usage metering.
+    // Deliberately not a hardware identifier: it is app-scoped, cannot be
+    // correlated across apps, and resets on uninstall/clear-data.
+    internal lateinit var clientId: String
     internal lateinit var fileHelper: IFileHelper
     internal lateinit var environment: Environment
     private lateinit var bundleHelper: BundleHelper
@@ -54,7 +56,6 @@ object LingoHub {
     // Add UpdateManager instance
     private val updateManager by lazy { UpdateManager.getInstance() }
 
-    @SuppressLint("HardwareIds")
     @Keep
     @JvmStatic
     fun configure(
@@ -67,8 +68,9 @@ object LingoHub {
         SnapKitHelper.enableIfTest()
         this.environment = environment ?: Environment.PRODUCTION
         this.apiKey = apiKey
-        this.deviceId =
-            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID) ?: ""
+        this.preferences = Preferences(context)
+        this.clientId = preferences.getClientId()
+            ?: UUID.randomUUID().toString().also { preferences.saveClientId(it) }
         packageName = context.packageName
         val packageInfo = context.packageManager.getPackageInfo(packageName, 0)
         appVersionName = packageInfo.versionName.toString()
@@ -76,7 +78,6 @@ object LingoHub {
         fileHelper = FileHelper(context.filesDir)
 
         this.api = Api.Companion.build()
-        this.preferences = Preferences(context)
         this.updater = Updater(LingoHubScope())
 
         ViewPump.init(InflationInterceptor)

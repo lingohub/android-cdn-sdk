@@ -9,12 +9,15 @@ internal interface IPreferences {
     fun getBundleMetadata(): BundleMetadata?
     fun saveBundleMetadata(metadata: BundleMetadata)
     fun clearBundleMetadata()
+    fun getClientId(): String?
+    fun saveClientId(clientId: String)
 }
 
 internal class Preferences(context: Context) : IPreferences {
     companion object {
         const val BUNDLE_ID = "bundle_identifier"
         const val APP_VERSION = "app_version"
+        const val CLIENT_ID = "client_id"
     }
 
     // Storage identifier, not brand surface: this name must stay "Lingohub" so apps
@@ -35,5 +38,16 @@ internal class Preferences(context: Context) : IPreferences {
             .putString(BUNDLE_ID, metadata.bundleIdentifier)
     }
 
-    override fun clearBundleMetadata() = prefs.edit() { clear() }
+    // Remove only the bundle keys: clear() would also wipe the per-install
+    // client id, which must survive an app-version purge.
+    override fun clearBundleMetadata() = prefs.edit() {
+        remove(APP_VERSION)
+            .remove(BUNDLE_ID)
+    }
+
+    override fun getClientId(): String? = prefs.getString(CLIENT_ID, null)
+
+    override fun saveClientId(clientId: String) = prefs.edit() {
+        putString(CLIENT_ID, clientId)
+    }
 }

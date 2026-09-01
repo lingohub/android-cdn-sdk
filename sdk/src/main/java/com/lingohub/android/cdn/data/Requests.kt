@@ -14,7 +14,7 @@ internal data class PackageRequest(
     val clientVersion: String = LingoHub.appVersionName,
     // Read at request time so a later LingoHub.setLocale() is reflected.
     val clientLanguageCode: String = LocaleProvider.currentLocale.language,
-    val clientUser: String = LingoHub.deviceId,
+    val clientUser: String = LingoHub.clientId,
     val clientAgent: String = "LingoHub-Android-SDK/" + BuildConfig.SDK_VERSION_NAME,
     val clientRelease: String? = LingoHub.preferences.getBundleMetadata()?.bundleIdentifier
 )
