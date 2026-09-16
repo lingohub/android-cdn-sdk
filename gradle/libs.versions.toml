@@ -13,7 +13,7 @@ viewpump = "4.0.10"
 
 lifecycleRuntimeKtx = "2.11.0"
 activityCompose = "1.12.4"
-composeBom = "2026.08.00"
+composeBom = "2026.09.00"
 
 junit4 = "4.13.2"
 junitJupiter = "6.1.3"
