@@ -39,13 +39,13 @@ internal class Repository(bundle: Bundle) : IRepository {
     }
 
     override fun getText(key: String): CharSequence? {
-        LingoHubLogger.logger.onDebug("loading string: '$key'")
+        LingoHubLogger.debug { "loading string: '$key'" }
         return textByKey[key]
     }
 
     override fun getPlural(key: String, quantityString: String): CharSequence? {
         val pluralKey = "${key}_$quantityString"
-        LingoHubLogger.logger.onDebug("loading plural '$pluralKey'")
+        LingoHubLogger.debug { "loading plural '$pluralKey'" }
         // TEXT fallback keeps compatibility with bundles that shipped plural
         // quantities as plain TEXT items.
         return pluralByKey[pluralKey] ?: textByKey[pluralKey]
