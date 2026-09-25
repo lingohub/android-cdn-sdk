@@ -1,13 +1,17 @@
 package com.lingohub.android.cdn.utils
 
 import androidx.annotation.Keep
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * This class is used by the SnapKit SDK
  */
 @Keep
 internal object SnapKitHelper {
-    private val stringsKeyMap = mutableMapOf<String, String>()
+    // Written by string lookups, which may run on any thread.
+    private val stringsKeyMap = ConcurrentHashMap<String, String>()
+
+    @Volatile
     private var enabled = false
 
     fun enableIfTest() {

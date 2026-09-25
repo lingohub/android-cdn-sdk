@@ -20,7 +20,6 @@ import com.lingohub.android.cdn.data.IPreferences
 import com.lingohub.android.cdn.data.IRepository
 import com.lingohub.android.cdn.data.LingoHubScope
 import com.lingohub.android.cdn.data.Preferences
-import com.lingohub.android.cdn.data.Repository
 import com.lingohub.android.cdn.data.UpdatePolicy
 import com.lingohub.android.cdn.data.Updater
 import dev.b3nedikt.viewpump.ViewPump
@@ -45,9 +44,10 @@ object LingoHub {
     internal lateinit var clientId: String
     internal lateinit var fileHelper: IFileHelper
     internal lateinit var environment: Environment
-    private lateinit var bundleHelper: BundleHelper
 
-    private val repositoryMap = mutableMapOf<Locale, IRepository>()
+    // Created up front: wrapped contexts look up strings before configure()
+    // runs and then simply see no release until the first refresh.
+    private val bundleHelper = BundleHelper()
     private val emptyRepository: IRepository = object : IRepository {}
 
     // Serializes every bundle state transition (app-version purge, initial
@@ -108,7 +108,6 @@ object LingoHub {
 
         ViewPump.init(InflationInterceptor)
 
-        bundleHelper = BundleHelper()
         updater.scope.launch {
             bundleTransitionLock.withLock {
                 purgeBundleOnAppUpdate()
@@ -197,11 +196,9 @@ object LingoHub {
 
     /** Serves a release an update cycle just activated (see Updater) and tells the listeners. */
     internal suspend fun onBundleUpdated(bundleInfo: BundleInfo) {
-        // Await the disk read before clearing caches and notifying listeners:
-        // otherwise a listener-triggered lookup can rebuild (and cache) a
-        // repository from the previous in-memory bundle.
+        // Await the disk read before notifying listeners, so lookups they
+        // trigger already resolve against the new release.
         bundleHelper.refresh()
-        clearRepositories()
         LingoHubLogger.logger.onInfo("downloaded new bundle with id: ${bundleInfo.id}")
 
         updateManager.notifyDataChanged()
@@ -225,22 +222,8 @@ object LingoHub {
         }
     }
 
-    internal fun getRepository(locale: Locale): IRepository {
-        return repositoryMap[locale] ?: buildRepository(locale)?.also { repositoryMap[locale] = it }
-        ?: emptyRepository
-    }
-
-    internal fun addRepository(locale: Locale, repository: IRepository) =
-        repositoryMap.put(locale, repository)
-
-    private fun clearRepositories() {
-        repositoryMap.clear()
-        LingoHubLogger.logger.onDebug("cleared repositories")
-    }
-
-    private fun buildRepository(locale: Locale): IRepository? {
-        return bundleHelper.bundleForLocale(locale)?.let { Repository(it) }
-    }
+    internal fun getRepository(locale: Locale): IRepository =
+        bundleHelper.repositoryForLocale(locale) ?: emptyRepository
 
     @Keep
     @JvmStatic

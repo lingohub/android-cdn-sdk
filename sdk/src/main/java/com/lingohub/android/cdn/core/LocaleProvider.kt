@@ -4,17 +4,14 @@ import java.util.*
 
 internal object LocaleProvider {
 
-    var isInitial = true
+    // Null until setLocale() picks a language; until then follow the device.
+    // Volatile: lookups run on whichever thread a Service or worker uses.
+    @Volatile
+    private var selectedLocale: Locale? = null
 
-    var currentLocale: Locale = Locale.getDefault()
-        get() {
-            if (isInitial) {
-                return Locale.getDefault()
-            }
-            return field
-        }
+    var currentLocale: Locale
+        get() = selectedLocale ?: Locale.getDefault()
         set(value) {
-            field = value
-            isInitial = false
+            selectedLocale = value
         }
 }

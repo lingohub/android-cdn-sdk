@@ -44,10 +44,6 @@ internal fun awaitBundleTransitions() = runBlocking {
     LingoHub.bundleTransitionLock.withLock { }
 }
 
-internal fun configureRepository(repository: IRepository, locale: Locale = Locale.ENGLISH) {
-    LingoHub.addRepository(locale, repository)
-}
-
 internal fun createRepository(nameId: String, quantity: String? = null, text: CharSequence? = null, textArray: Array<CharSequence>? = null): IRepository {
     return object : IRepository {
         override fun getText(key: String) = text.takeIf { key == nameId }
