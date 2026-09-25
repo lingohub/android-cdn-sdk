@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Integrates LingoHub exactly as the README describes for strings outside
+         Activities, so the tests exercise the documented setup. -->
+    <application android:name="com.lingohub.android.cdn.core.TestApplication">
+        <service
+            android:name="com.lingohub.android.cdn.core.TranslatedService"
+            android:exported="false" />
+        <receiver
+            android:name="com.lingohub.android.cdn.core.TranslatedReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

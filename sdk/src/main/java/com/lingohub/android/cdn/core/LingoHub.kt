@@ -130,6 +130,28 @@ object LingoHub {
     }
 
     /**
+     * Returns a context whose string lookups (`getString`, `getText`,
+     * `getQuantityString`, `getStringArray`) serve the downloaded translations
+     * and fall back to the strings packaged in the app. Use it where the
+     * Activity delegate does not reach: the `Application`, `Service`s and
+     * `BroadcastReceiver`s.
+     *
+     * In an `Application` or `Service`, create it once and return its
+     * resources from `getResources()`. Do not pass it to
+     * `Application.attachBaseContext()`: the app then crashes when Android
+     * delivers a broadcast to a receiver declared in the manifest. See the
+     * README for the full pattern.
+     *
+     * Safe to call before [configure] (lookups return the packaged strings
+     * until a release is loaded) and from any thread. Wrapping a wrapped
+     * context returns it unchanged.
+     */
+    @Keep
+    @JvmStatic
+    fun wrap(base: Context): Context =
+        base as? LingoHubContextWrapper ?: LingoHubContextWrapper(base)
+
+    /**
      * Checks the CDN for a newer release and installs it; [LingoHubUpdateListener]s hear about the
      * outcome. Call it whenever your app starts or comes to the foreground: within the minimum interval
      * after the last successful update (see [setMinimumCheckInterval]) it returns without contacting the

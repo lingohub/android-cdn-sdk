@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="lh_test_greeting">Hello from the APK</string>
+    <string name="lh_test_welcome">Welcome, %1$s (APK)</string>
+    <plurals name="lh_test_messages">
+        <item quantity="one">%d message (APK)</item>
+        <item quantity="other">%d messages (APK)</item>
+    </plurals>
+</resources>

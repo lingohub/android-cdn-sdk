@@ -1,8 +1,11 @@
 package com.lingohub.android.cdn.utils
 
 import android.content.Context
+import android.content.res.AssetManager
+import android.content.res.Configuration
 import android.content.res.Resources
 import android.icu.text.PluralRules
+import android.util.DisplayMetrics
 import com.lingohub.android.cdn.core.LingoHub
 import com.lingohub.android.cdn.core.LocaleProvider
 import com.lingohub.android.cdn.data.IRepository
@@ -10,8 +13,10 @@ import java.util.*
 
 internal class ResourcesUtil(
     private val context: Context,
-    baseResources: Resources
-) : Resources(baseResources.assets, baseResources.displayMetrics, baseResources.configuration) {
+    assets: AssetManager,
+    metrics: DisplayMetrics,
+    configuration: Configuration
+) : Resources(assets, metrics, configuration) {
     private val repository: IRepository
         get() {
             val locale = currentLocale()
