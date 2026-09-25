@@ -27,9 +27,9 @@ class ApiTest {
         )
         val mockResponse = Response.success(testBundleInfo)
         
-        whenever(mockApi.getBundleInfo(any())).thenReturn(mockResponse)
+        whenever(mockApi.getBundleInfo(any(), any())).thenReturn(mockResponse)
 
-        val result = mockApi.getBundleInfo(PackageRequest())
+        val result = mockApi.getBundleInfo("Bearer lh-cdn_key", PackageRequest())
         
         assert(result.isSuccessful)
         assert(result.body() == testBundleInfo)
@@ -40,9 +40,9 @@ class ApiTest {
         val errorBody = mock<ResponseBody>()
         val errorResponse = Response.error<BundleInfo>(404, errorBody)
         
-        whenever(mockApi.getBundleInfo(any())).thenReturn(errorResponse)
+        whenever(mockApi.getBundleInfo(any(), any())).thenReturn(errorResponse)
 
-        val result = mockApi.getBundleInfo(PackageRequest())
+        val result = mockApi.getBundleInfo("Bearer lh-cdn_key", PackageRequest())
         
         assert(!result.isSuccessful)
         assert(result.code() == 404)

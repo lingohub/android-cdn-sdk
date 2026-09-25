@@ -3,7 +3,7 @@
 A small Jetpack Compose app for **Wanderly**, a fictional trip-planning product,
 demonstrating the LingoHub Android SDK end to end:
 
-* SDK configuration in [`LingoHubApplication.kt`](src/main/java/com/lingohub/android/cdn/example/LingoHubApplication.kt) (Development environment, debug-only full logging, a once-a-day update throttle)
+* SDK configuration in [`LingoHubApplication.kt`](src/main/java/com/lingohub/android/cdn/example/LingoHubApplication.kt) (Development environment, debug-only full logging, an update check on every start that the SDK paces itself)
 * The mandatory `BaseActivity` delegate pattern with `recreate()` on updates in [`BaseActivity.kt`](src/main/java/com/lingohub/android/cdn/example/BaseActivity.kt)
 * Placeholders (`%1$s`), plurals (the travelers stepper), and runtime language switching across en · de · es · fr · ja in [`MainActivity.kt`](src/main/java/com/lingohub/android/cdn/example/MainActivity.kt)
 

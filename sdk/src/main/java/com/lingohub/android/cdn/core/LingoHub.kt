@@ -1,12 +1,12 @@
 package com.lingohub.android.cdn.core
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import androidx.activity.ComponentActivity
 import androidx.annotation.Keep
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.app.ViewPumpAppCompatDelegate
 import com.lingohub.android.cdn.data.model.BundleInfo
-import com.lingohub.android.cdn.data.model.BundleMetadata
 import com.lingohub.android.cdn.data.model.Environment
 import com.lingohub.android.cdn.ui.InflationInterceptor
 import com.lingohub.android.cdn.utils.BundleHelper
@@ -21,11 +21,13 @@ import com.lingohub.android.cdn.data.IRepository
 import com.lingohub.android.cdn.data.LingoHubScope
 import com.lingohub.android.cdn.data.Preferences
 import com.lingohub.android.cdn.data.Repository
+import com.lingohub.android.cdn.data.UpdatePolicy
 import com.lingohub.android.cdn.data.Updater
 import dev.b3nedikt.viewpump.ViewPump
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.*
+import java.util.concurrent.TimeUnit
 
 @Keep
 object LingoHub {
@@ -53,8 +55,28 @@ object LingoHub {
     // cannot interleave and an older snapshot can never be published last.
     internal val bundleTransitionLock = Mutex()
 
+    // Counts configure() calls. An update cycle belongs to the configuration it started with: once the
+    // app configures the SDK again, the cycle stops without changes (see Updater and runIfConfigured).
+    private val configurationLock = Any()
+
+    @Volatile
+    internal var configurationGeneration = 0L
+        private set
+
     // Add UpdateManager instance
     private val updateManager by lazy { UpdateManager.getInstance() }
+
+    // The minimum time between update checks: the app's choice (setMinimumCheckInterval), otherwise
+    // 15 minutes, and none in debuggable builds so that every update() call checks during development.
+    @Volatile
+    internal var minimumCheckIntervalOverrideMs: Long? = null
+
+    @Volatile
+    private var debuggable = false
+
+    internal val minimumCheckIntervalMs: Long
+        get() = minimumCheckIntervalOverrideMs
+            ?: if (debuggable) 0 else UpdatePolicy.RELEASE_MINIMUM_CHECK_INTERVAL_MS
 
     @Keep
     @JvmStatic
@@ -64,6 +86,9 @@ object LingoHub {
         environment: Environment? = Environment.PRODUCTION,
         logLevel: LingoHubLogLevel = LingoHubLogLevel.NONE
     ) {
+        // Supersedes running update cycles before anything changes; one that is activating its
+        // release right now finishes that first (see runIfConfigured)
+        synchronized(configurationLock) { configurationGeneration++ }
         LingoHubLogger.init(logLevel)
         SnapKitHelper.enableIfTest()
         this.environment = environment ?: Environment.PRODUCTION
@@ -74,6 +99,7 @@ object LingoHub {
         packageName = context.packageName
         val packageInfo = context.packageManager.getPackageInfo(packageName, 0)
         appVersionName = packageInfo.versionName.toString()
+        debuggable = ((context.applicationInfo?.flags ?: 0) and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
         fileHelper = FileHelper(context.filesDir)
 
@@ -104,12 +130,31 @@ object LingoHub {
         )
     }
 
+    /**
+     * Checks the CDN for a newer release and installs it; [LingoHubUpdateListener]s hear about the
+     * outcome. Call it whenever your app starts or comes to the foreground: within the minimum interval
+     * after the last successful update (see [setMinimumCheckInterval]) it returns without contacting the
+     * CDN, and while a failure has paused update checks, it reports that failure to
+     * [LingoHubUpdateListener.onFailure] the same way (see "Failures and retries" in the README).
+     */
     @Keep
     @JvmStatic
     fun update() {
         ensureInit()
         LingoHubLogger.logger.onInfo("checking for bundle update (${environment.name})")
         updater.update()
+    }
+
+    /**
+     * Sets the minimum time between update checks. For this long after the last successful update,
+     * [update] returns without contacting the CDN. Defaults to 15 minutes, and to 0 in debuggable
+     * builds so that every call checks while you develop. Pauses after failed checks apply regardless
+     * of it. Negative values count as 0.
+     */
+    @Keep
+    @JvmStatic
+    fun setMinimumCheckInterval(interval: Long, unit: TimeUnit) {
+        minimumCheckIntervalOverrideMs = unit.toMillis(interval.coerceAtLeast(0))
     }
 
     @Keep
@@ -139,16 +184,24 @@ object LingoHub {
         }
     }
 
+    /**
+     * Runs [block] if the SDK is still configured as in [generation] and returns whether it did. configure()
+     * waits for [block] meanwhile, so what [block] changes, such as the live bundle, changes entirely before
+     * the app configures the SDK again, or not at all. Keep [block] brief: configure() usually runs on the main thread.
+     */
+    internal fun runIfConfigured(generation: Long, block: () -> Unit): Boolean = synchronized(configurationLock) {
+        if (generation != configurationGeneration) return false
+        block()
+        true
+    }
+
+    /** Serves a release an update cycle just activated (see Updater) and tells the listeners. */
     internal suspend fun onBundleUpdated(bundleInfo: BundleInfo) {
         // Await the disk read before clearing caches and notifying listeners:
         // otherwise a listener-triggered lookup can rebuild (and cache) a
         // repository from the previous in-memory bundle.
         bundleHelper.refresh()
         clearRepositories()
-
-        val metaData = BundleMetadata(bundleInfo.id, appVersionName)
-        LingoHubLogger.logger.onDebug("saving bundle meta: $metaData")
-        preferences.saveBundleMetadata(metaData)
         LingoHubLogger.logger.onInfo("downloaded new bundle with id: ${bundleInfo.id}")
 
         updateManager.notifyDataChanged()

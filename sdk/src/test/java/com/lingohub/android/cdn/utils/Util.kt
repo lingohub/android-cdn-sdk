@@ -8,6 +8,8 @@ import android.os.LocaleList
 import com.lingohub.android.cdn.core.LingoHub
 import com.lingohub.android.cdn.data.IRepository
 import com.lingohub.android.cdn.data.model.Environment
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.withLock
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 
@@ -25,10 +27,21 @@ fun configureResourceGetText(resources: Resources, id: Int, nameId: String, text
 
 fun clearLingoHub(context: Context) {
     LingoHub.configure(context, "", Environment.TEST)
+    awaitBundleTransitions()
 }
 
 fun configureLingoHub(context: Context) {
     LingoHub.configure(context, "", Environment.TEST)
+    awaitBundleTransitions()
+}
+
+/**
+ * Waits until `configure()`'s startup refresh is done. It holds `LingoHub.bundleTransitionLock` across a
+ * hop to `Dispatchers.IO`; resumed only after the test reset `Dispatchers.Main`, it would never release the
+ * lock, and every later install in the test JVM would hang.
+ */
+internal fun awaitBundleTransitions() = runBlocking {
+    LingoHub.bundleTransitionLock.withLock { }
 }
 
 internal fun configureRepository(repository: IRepository, locale: Locale = Locale.ENGLISH) {
