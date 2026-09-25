@@ -16,7 +16,7 @@ slots. Section names and order are fixed — content inside adapts.
 | 7 | Get your API key | Distribution setup steps; key prefix `lh-cdn_`; link to developers.lingohub.com/reference/distributions |
 | 8 | Quick Start | Numbered minimal integration (configure → platform hook → use strings as usual) |
 | 9 | Configuration | Parameter table: `environment`, `logLevel`, with defaults; "environment must match the release" note; debug-only logging tip |
-| 10 | Advanced Usage | Subsections: Switch languages at runtime · Update notifications · Reduce network requests (the built-in minimum interval and how to change it) · (platform extras, e.g. manual localization on iOS) |
+| 10 | Advanced Usage | Subsections: Switch languages at runtime · Update notifications · Reduce network requests (the built-in minimum interval and how to change it) · (platform extras, e.g. Strings outside Activities on Android, manual localization on iOS) |
 | 11 | Error handling | First: the silent non-errors (up to date; `DISTRIBUTION_NOT_FOUND`). Then the failure table: 401 codes (`CDN_KEY_NOT_FOUND`, `CDN_KEY_EXPIRED`, `TOKEN_EXPIRED`, `JWT_INVALID`), 429 `USAGE_LIMIT_EXCEEDED`, 5xx, 400, other — each with what to do. Then the sub-section "Failures and retries": the retry and pause policy table, word for word the same in every SDK README (lingohub/organization#2351), followed by the platform's own notes: what survives a restart, what a running check does when the app reconfigures the SDK, and what `update()` reports while checks are paused or skipped |
 | 12 | Troubleshooting | Sub-section of Error handling: "no network request", "nothing changes", "updates only after restart", 401, 429 |
 | 13 | Platform build notes | Android: R8/ProGuard. iOS: (none / Xcode notes) |

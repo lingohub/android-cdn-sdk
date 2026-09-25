@@ -17,4 +17,6 @@
     <string name="notifications_upgrade">Sie wurden hochgestuft, %1$s! Genießen Sie die Beinfreiheit.</string>
     <!-- Demo chrome, not part of the Wanderly content. -->
     <string name="action_check_updates">Nach Updates suchen</string>
+    <string name="action_send_notification">Push-Benachrichtigung senden</string>
+    <string name="notification_channel_trips">Reise-Updates</string>
 </resources>

@@ -6,6 +6,7 @@ demonstrating the LingoHub Android SDK end to end:
 * SDK configuration in [`LingoHubApplication.kt`](src/main/java/com/lingohub/android/cdn/example/LingoHubApplication.kt) (Development environment, debug-only full logging, an update check on every start that the SDK paces itself)
 * The mandatory `BaseActivity` delegate pattern with `recreate()` on updates in [`BaseActivity.kt`](src/main/java/com/lingohub/android/cdn/example/BaseActivity.kt)
 * Placeholders (`%1$s`), plurals (the travelers stepper), and runtime language switching across en · de · es · fr · ja in [`MainActivity.kt`](src/main/java/com/lingohub/android/cdn/example/MainActivity.kt)
+* Strings outside Activities: the `Application` and a push-notification `Service`, [`UpgradeNotificationService.kt`](src/main/java/com/lingohub/android/cdn/example/UpgradeNotificationService.kt), return `LingoHub.wrap(...)` resources from `getResources()`
 
 Only **English and German ship inside the APK** — Spanish, French, and Japanese
 exist purely over the air, so seeing them on screen proves the OTA pipeline is
@@ -26,7 +27,9 @@ to the packaged (English) strings.
 1. Launch — the app downloads the published release on first start.
 2. Tap **ES** — Spanish appears even though the APK contains none.
 3. Tap **+** — plural forms come from the OTA bundle.
-4. Change a string in LingoHub (e.g. the tagline), publish a new release,
+4. Tap **Send push notification** — the notification is built in a Service,
+   and its text is Spanish, too.
+5. Change a string in LingoHub (e.g. the tagline), publish a new release,
    tap **Check for updates** — the text changes on screen within seconds.
 
 The sample depends on the SDK via `implementation(project(":sdk"))` so it always

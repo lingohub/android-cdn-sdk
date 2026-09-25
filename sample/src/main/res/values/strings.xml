@@ -46,4 +46,6 @@
     <string name="notifications_upgrade">You\'ve been upgraded, %1$s! Enjoy the legroom.</string>
     <!-- Demo chrome, not part of the Wanderly content. -->
     <string name="action_check_updates">Check for updates</string>
+    <string name="action_send_notification">Send push notification</string>
+    <string name="notification_channel_trips">Trip updates</string>
 </resources>
