@@ -1,5 +1,5 @@
 [versions]
-agp = "9.4.0"
+agp = "9.4.1"
 kotlin = "2.4.20"
 mavenPublish = "0.37.0"
 
@@ -9,11 +9,11 @@ kotlinxCoroutines = "1.11.0"
 kotlinxSerializationJson = "1.11.0"
 okhttp = "5.4.0"
 retrofit = "3.0.0"
-viewpump = "4.0.10"
+viewpump = "4.0.15"
 
 lifecycleRuntimeKtx = "2.11.0"
 activityCompose = "1.12.4"
-composeBom = "2026.08.00"
+composeBom = "2026.09.00"
 
 junit4 = "4.13.2"
 junitJupiter = "6.1.3"

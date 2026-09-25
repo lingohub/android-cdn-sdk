@@ -37,7 +37,9 @@ publish or drop it there.
 ## Cutting a release
 
 1. Make sure `main` is green.
-2. Bump the version and push the tag:
+2. In `CHANGELOG.md`, move the `[Unreleased]` entries under a heading for the
+   version you are about to release, with today's date, and merge that to `main`.
+3. Bump the version and push the tag:
 
    ```bash
    ./bump-version.sh minor   # or: patch | major
@@ -49,9 +51,10 @@ publish or drop it there.
    and tag in one atomic push. The script is covered by
    `scripts/test-bump-version.sh`, which CI runs against a throwaway local
    repository.
-3. Create a GitHub release from that tag (the tag alone does **not** publish).
-   Publishing starts when the release is *published*.
-4. The `Publish to Maven Central` workflow builds, signs, uploads, and releases
+4. Create a GitHub release from that tag (the tag alone does **not** publish),
+   with the version's `CHANGELOG.md` entries as release notes. Publishing starts
+   when the release is *published*.
+5. The `Publish to Maven Central` workflow builds, signs, uploads, and releases
    the deployment automatically. Artifacts are usually resolvable within ~30
    minutes; search indexing on central.sonatype.com takes longer.
 
