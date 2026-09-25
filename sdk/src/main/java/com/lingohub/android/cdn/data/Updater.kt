@@ -5,6 +5,7 @@ import com.lingohub.android.cdn.core.LingoHubSDKError
 import com.lingohub.android.cdn.core.UpdateManager
 import com.lingohub.android.cdn.data.model.BundleInfo
 import com.lingohub.android.cdn.data.model.CdnErrorResponse
+import com.lingohub.android.cdn.data.model.Environment
 import com.lingohub.android.cdn.utils.LingoHubLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -13,8 +14,8 @@ import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.ResponseBody
 import retrofit2.HttpException
-import java.util.Collections
 import java.util.Date
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -35,9 +36,6 @@ internal class Updater(
     // Single-flight guard: concurrent update() calls would otherwise race
     // through deletion and extraction of the same bundle directory.
     private val updateInFlight = AtomicBoolean(false)
-
-    // Client errors already logged in this process (see failUpdate).
-    private val loggedClientErrors: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
 
     fun update() {
         if (!updateInFlight.compareAndSet(false, true)) {
@@ -66,8 +64,8 @@ internal class Updater(
     }
 
     private suspend fun runUpdate() {
-        val scope = UpdateSchedule.Scope.of(LingoHub.appVersionName, LingoHub.environment, LingoHub.apiKey.orEmpty())
-        val schedule = LingoHub.preferences.getUpdateSchedule(scope)
+        val context = CycleContext.current()
+        val schedule = LingoHub.preferences.getUpdateSchedule(context.scope)
         when (val decision = schedule.decide(clock(), LingoHub.minimumCheckIntervalMs)) {
             is UpdateSchedule.Decision.Paused -> {
                 LingoHubLogger.logger.onInfo("update checks are paused until ${Date(decision.cooldown.untilMs)}, skipping the check")
@@ -80,18 +78,38 @@ internal class Updater(
             UpdateSchedule.Decision.Check -> Unit
         }
 
-        val cycle = Cycle(schedule)
+        val cycle = Cycle(context, schedule)
         try {
             cycle.run()
             cycle.schedule = cycle.schedule.recordSuccess(clock())
         } finally {
-            // Keeps what the cycle recorded: a pause, or the end of a series of 5xx
-            LingoHub.preferences.saveUpdateSchedule(cycle.schedule)
+            // Keeps what the cycle recorded: a pause, or the end of a series of 5xx. Unless the app
+            // reconfigured the SDK while the cycle ran: the schedule then belongs to a scope no longer in
+            // use, and saving it would replace the one the current configuration recorded meanwhile.
+            if (context == CycleContext.current()) {
+                LingoHub.preferences.saveUpdateSchedule(cycle.schedule)
+            } else {
+                LingoHubLogger.logger.onInfo("the SDK was reconfigured during the update check, its schedule is not saved")
+            }
+        }
+    }
+
+    /**
+     * The configuration an update cycle runs with, captured when it starts. Every request of the cycle is
+     * sent with it and its answers are recorded under its scope, even if the app calls `configure()` again
+     * while the cycle waits for its retry.
+     */
+    private data class CycleContext(val apiKey: String, val environment: Environment, val appVersion: String) {
+        val scope: UpdateSchedule.Scope
+            get() = UpdateSchedule.Scope.of(appVersion, environment, apiKey)
+
+        companion object {
+            fun current() = CycleContext(LingoHub.apiKey.orEmpty(), LingoHub.environment, LingoHub.appVersionName)
         }
     }
 
     /** One update cycle. Its checks record the CDN's answers into [schedule]. */
-    private inner class Cycle(var schedule: UpdateSchedule) {
+    private inner class Cycle(private val context: CycleContext, var schedule: UpdateSchedule) {
 
         /**
          * Checks for a release, downloads and installs it. A download the storage refuses (an expired
@@ -122,7 +140,10 @@ internal class Updater(
          * persists, or a 429, pauses update checks.
          */
         suspend fun check(retryingServerErrors: Boolean): BundleInfo? {
-            val response = api.getBundleInfo()
+            val response = api.getBundleInfo(
+                authorization = "Bearer ${context.apiKey}",
+                body = PackageRequest(distributionEnvironment = context.environment.name, clientVersion = context.appVersion),
+            )
             val code = response.code()
 
             // 204 is the CDN's regular "already up to date" answer, not an error.
@@ -148,7 +169,7 @@ internal class Updater(
                 code == 404 && CODE_DISTRIBUTION_NOT_FOUND in codes -> {
                     schedule = schedule.recordAnswer()
                     LingoHubLogger.logger.onInfo(
-                        "no distribution release available for ${LingoHub.environment.name} yet"
+                        "no distribution release available for ${context.environment.name} yet"
                     )
                     return null
                 }
@@ -160,7 +181,7 @@ internal class Updater(
                         waitBeforeRetry(delayMs)
                         return check(retryingServerErrors = false)
                     }
-                    schedule = schedule.recordServerError(code, retryAfterMs, clock())
+                    schedule = schedule.recordServerError(code, codes, retryAfterMs, clock())
                 }
                 // No retry: the next update() call checks again
                 else -> schedule = schedule.recordAnswer()
@@ -195,7 +216,8 @@ internal class Updater(
 
     /**
      * Reports a failed update. A client error (400, 401, a 404 other than DISTRIBUTION_NOT_FOUND, …) comes
-     * back on every check until the app or its configuration changes, so each one is logged once per process.
+     * back on every check until the app or its configuration changes, so each one is logged once per process,
+     * across `configure()` calls too.
      */
     private fun failUpdate(error: LingoHubSDKError) {
         val statusCode = error.statusCode
@@ -220,5 +242,8 @@ internal class Updater(
     private companion object {
         private const val CODE_DISTRIBUTION_NOT_FOUND = "DISTRIBUTION_NOT_FOUND"
         private val problemJson = Json { ignoreUnknownKeys = true }
+
+        // Process-wide: configure() creates a new Updater.
+        private val loggedClientErrors: MutableSet<String> = ConcurrentHashMap.newKeySet()
     }
 }

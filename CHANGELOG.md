@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file. Releases up
   - A `5xx` from the CDN is retried once, after the delay the response's `Retry-After` asks for, or after a random 2–5 seconds. When the retry fails as well, update checks pause for 5 minutes, doubling with each further failed update in a row up to an hour.
   - A download the storage refuses (an expired download URL, a `5xx`) gets one fresh check for a new download URL.
   - A new app version, another environment or another CDN key starts without a pause and without the minimum interval.
+  - An update check that is running when the app configures another environment or CDN key finishes with the configuration it started with, including its retry, and doesn't overwrite what the new configuration recorded.
+  - The check request is sent exactly as often as this policy says: OkHttp no longer repeats it on its own after a `408` or a `503` with `Retry-After: 0`.
   - Client errors (`400`, `401`, a `404` other than `DISTRIBUTION_NOT_FOUND`) are logged once per process instead of on every check.
 
 ### Added

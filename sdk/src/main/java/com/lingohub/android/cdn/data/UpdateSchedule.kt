@@ -85,10 +85,10 @@ internal data class UpdateSchedule(
     fun recordAnswer() = copy(consecutiveServerErrors = 0)
 
     /** An update failed with a 5xx: pause checks, backing off with every failure in a row. */
-    fun recordServerError(statusCode: Int, retryAfterMs: Long?, nowMs: Long): UpdateSchedule {
+    fun recordServerError(statusCode: Int, errorCodes: List<String>, retryAfterMs: Long?, nowMs: Long): UpdateSchedule {
         val failures = consecutiveServerErrors + 1
         val durationMs = UpdatePolicy.serverErrorCooldownMs(failures, retryAfterMs)
-        return copy(consecutiveServerErrors = failures, cooldown = Cooldown(nowMs + durationMs, statusCode, emptyList()))
+        return copy(consecutiveServerErrors = failures, cooldown = Cooldown(nowMs + durationMs, statusCode, errorCodes))
     }
 
     /** The CDN answered 429: pause checks for an hour, or for `Retry-After` when longer. */

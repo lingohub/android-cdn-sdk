@@ -60,7 +60,7 @@ class UpdaterTest : BaseContextTest() {
     fun `Download api call invoked upon receiving bundleInfo`() {
         val mockedBundle = getMockedBundleInfo()
         runTest {
-            whenever(api.getBundleInfo()).thenReturn(mockedBundle)
+            whenever(api.getBundleInfo(any(), any())).thenReturn(mockedBundle)
             whenever(api.downloadBundle(any())).thenReturn("test".toResponseBody())
             LingoHub.update()
             verify(api, times(1)).downloadBundle(mockedBundle.body()!!.filesUrl)
@@ -73,7 +73,7 @@ class UpdaterTest : BaseContextTest() {
         val mockedBundle = getMockedBundleInfo()
 
         runTest {
-            whenever(api.getBundleInfo()).thenReturn(mockedBundle)
+            whenever(api.getBundleInfo(any(), any())).thenReturn(mockedBundle)
             whenever(api.downloadBundle(any())).thenReturn(downloadResponse)
             LingoHub.updater.update()
             verify(fileHelper, times(1)).installBundle(any())
@@ -85,7 +85,7 @@ class UpdaterTest : BaseContextTest() {
         val listener: LingoHubUpdateListener = mock()
         LingoHub.addUpdateListener(listener)
         runTest {
-            whenever(api.getBundleInfo()).thenReturn(getMockedBundleInfo())
+            whenever(api.getBundleInfo(any(), any())).thenReturn(getMockedBundleInfo())
             whenever(api.downloadBundle(any())).thenReturn("test".toResponseBody())
             LingoHub.update()
 
@@ -99,7 +99,7 @@ class UpdaterTest : BaseContextTest() {
 
     @Test
     fun `Concurrent update calls are single-flight`() = runTest {
-        whenever(api.getBundleInfo()).thenReturn(getMockedBundleInfo())
+        whenever(api.getBundleInfo(any(), any())).thenReturn(getMockedBundleInfo())
         whenever(api.downloadBundle(any())).thenReturn("test".toResponseBody())
         val updater = Updater(QueueingCoroutineScope(this))
 
@@ -107,12 +107,12 @@ class UpdaterTest : BaseContextTest() {
         updater.update()
         advanceUntilIdle()
 
-        verify(api, times(1)).getBundleInfo()
+        verify(api, times(1)).getBundleInfo(any(), any())
 
         // Once the first update finished, the guard is released again.
         updater.update()
         advanceUntilIdle()
-        verify(api, times(2)).getBundleInfo()
+        verify(api, times(2)).getBundleInfo(any(), any())
     }
 
     @Test
@@ -120,7 +120,7 @@ class UpdaterTest : BaseContextTest() {
         val listener: LingoHubUpdateListener = mock()
         LingoHub.addUpdateListener(listener)
         runTest {
-            whenever(api.getBundleInfo()).thenReturn(
+            whenever(api.getBundleInfo(any(), any())).thenReturn(
                 Response.success(getBundleInfo(filesUrl = "http://cdn.lingohub.com/bundles/test.zip"))
             )
             LingoHub.update()
@@ -137,7 +137,7 @@ class UpdaterTest : BaseContextTest() {
         val listener: LingoHubUpdateListener = mock()
         LingoHub.addUpdateListener(listener)
         runTest {
-            whenever(api.getBundleInfo()).thenReturn(Response.success(204, null as BundleInfo?))
+            whenever(api.getBundleInfo(any(), any())).thenReturn(Response.success(204, null as BundleInfo?))
             LingoHub.update()
             verify(api, never()).downloadBundle(any())
             verify(listener, never()).onFailure(any())
@@ -153,7 +153,7 @@ class UpdaterTest : BaseContextTest() {
             val body =
                 """{"type":"about:blank","status":404,"detail":"Not Found","errors":[{"field":"DISTRIBUTION","infos":["DISTRIBUTION_NOT_FOUND"]}]}"""
                     .toResponseBody("application/json".toMediaType())
-            whenever(api.getBundleInfo()).thenReturn(Response.error(404, body))
+            whenever(api.getBundleInfo(any(), any())).thenReturn(Response.error(404, body))
             LingoHub.update()
             verify(api, never()).downloadBundle(any())
             verify(listener, never()).onFailure(any())
@@ -169,7 +169,7 @@ class UpdaterTest : BaseContextTest() {
             val body =
                 """{"type":"about:blank","status":429,"detail":"Too Many Requests","errors":[{"field":"USAGE","infos":["USAGE_LIMIT_EXCEEDED"]}]}"""
                     .toResponseBody("application/json".toMediaType())
-            whenever(api.getBundleInfo()).thenReturn(Response.error(429, body))
+            whenever(api.getBundleInfo(any(), any())).thenReturn(Response.error(429, body))
             LingoHub.update()
             verify(api, never()).downloadBundle(any())
             val captor = argumentCaptor<Throwable>()

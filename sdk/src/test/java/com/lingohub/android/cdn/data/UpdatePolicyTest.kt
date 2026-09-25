@@ -96,17 +96,17 @@ class UpdatePolicyTest {
 
     @Test
     fun `server errors pause with backoff until the CDN answers again`() {
-        var schedule = UpdateSchedule(scope).recordServerError(503, 2_000, start)
+        var schedule = UpdateSchedule(scope).recordServerError(503, emptyList(), 2_000, start)
         val first = UpdateSchedule.Cooldown(start + 5 * minute, 503, emptyList())
         assertEquals(first, schedule.cooldown)
         assertEquals(UpdateSchedule.Decision.Paused(first), schedule.decide(start + 5 * minute - 1, 0))
         assertEquals(UpdateSchedule.Decision.Check, schedule.decide(start + 5 * minute, 0))
 
-        schedule = schedule.recordServerError(502, null, start + 5 * minute)
-        assertEquals(UpdateSchedule.Cooldown(start + 15 * minute, 502, emptyList()), schedule.cooldown)
+        schedule = schedule.recordServerError(502, listOf("UPSTREAM_DOWN"), null, start + 5 * minute)
+        assertEquals(UpdateSchedule.Cooldown(start + 15 * minute, 502, listOf("UPSTREAM_DOWN")), schedule.cooldown, "The pause keeps the codes it reports")
 
         // Any answer but a 5xx ends the series
-        schedule = schedule.recordAnswer().recordServerError(503, null, start + hour)
+        schedule = schedule.recordAnswer().recordServerError(503, emptyList(), null, start + hour)
         assertEquals(start + hour + 5 * minute, schedule.cooldown?.untilMs)
 
         schedule = schedule.recordSuccess(start + 2 * hour)
@@ -118,7 +118,7 @@ class UpdatePolicyTest {
     @Test
     fun `usage limit pauses checks and ends a server error series`() {
         val schedule = UpdateSchedule(scope)
-            .recordServerError(503, null, start)
+            .recordServerError(503, emptyList(), null, start)
             .recordUsageLimit(listOf("USAGE_LIMIT_EXCEEDED"), 3 * hour, start)
 
         assertEquals(UpdateSchedule.Cooldown(start + 3 * hour, 429, listOf("USAGE_LIMIT_EXCEEDED")), schedule.cooldown)
@@ -145,7 +145,7 @@ class UpdatePolicyTest {
         val storage = InMemorySharedPreferences()
         val schedule = UpdateSchedule(scope)
             .recordSuccess(start)
-            .recordServerError(503, null, start)
+            .recordServerError(503, emptyList(), null, start)
             .recordUsageLimit(listOf("USAGE_LIMIT_EXCEEDED", "OTHER"), null, start)
 
         Preferences(contextWith(storage)).saveUpdateSchedule(schedule)
@@ -176,7 +176,7 @@ class UpdatePolicyTest {
     fun `schedule without a pause or a successful update round-trips`() {
         val storage = InMemorySharedPreferences()
         val preferences = Preferences(contextWith(storage))
-        preferences.saveUpdateSchedule(UpdateSchedule(scope).recordServerError(500, null, start))
+        preferences.saveUpdateSchedule(UpdateSchedule(scope).recordServerError(500, emptyList(), null, start))
         val schedule = UpdateSchedule(scope).recordAnswer()
 
         preferences.saveUpdateSchedule(schedule)
