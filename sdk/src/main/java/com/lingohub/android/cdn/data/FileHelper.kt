@@ -12,7 +12,15 @@ import java.util.zip.ZipInputStream
 
 
 internal interface IFileHelper {
-    suspend fun installBundle(inputStream: InputStream)
+    /** Extracts and validates a release archive next to the live bundle, for [activateStagedBundle]. */
+    suspend fun stageBundle(inputStream: InputStream)
+
+    /** Makes the staged bundle the live one. Blocking, but brief: two renames and removing the replaced bundle. */
+    fun activateStagedBundle()
+
+    /** Removes a staged bundle that won't be activated. */
+    suspend fun discardStagedBundle()
+
     suspend fun readBundle(): List<Bundle>?
     suspend fun deleteBundle()
 }
@@ -20,7 +28,8 @@ internal interface IFileHelper {
 /**
  * Owns the on-disk bundle layout below [baseDir]:
  * - `lingohub/` is the live bundle that [readBundle] serves;
- * - `lingohub-staging/` receives a new bundle while it is extracted and validated;
+ * - `lingohub-staging/` receives a new bundle while it is extracted and validated, until it is activated
+ *   or discarded;
  * - `lingohub-old/` briefly holds the previous bundle during the swap so a
  *   failed or interrupted install can roll back to the last known-good state.
  */
@@ -41,14 +50,14 @@ internal class FileHelper(
         private val json = Json { ignoreUnknownKeys = true }
     }
 
-    override suspend fun installBundle(inputStream: InputStream): Unit = withContext(Dispatchers.IO) {
+    override suspend fun stageBundle(inputStream: InputStream): Unit = withContext(Dispatchers.IO) {
         stagingDir.deleteRecursively()
         if (!stagingDir.mkdirs()) {
             throw IOException("Failed to create staging directory: ${stagingDir.absolutePath}")
         }
         try {
             extractInto(stagingDir, inputStream)
-            // Decode the staged bundle before touching the live directory, so
+            // Decode the staged bundle before it can replace the live one, so
             // a release with malformed content can never destroy the last
             // known-good bundle.
             try {
@@ -56,11 +65,14 @@ internal class FileHelper(
             } catch (e: Exception) {
                 throw IOException("Bundle archive rejected: content failed to parse", e)
             }
-            activateStagedBundle()
         } catch (e: Exception) {
             stagingDir.deleteRecursively()
             throw e
         }
+    }
+
+    override suspend fun discardStagedBundle(): Unit = withContext(Dispatchers.IO) {
+        stagingDir.deleteRecursively()
     }
 
     private fun extractInto(targetDir: File, inputStream: InputStream) {
@@ -123,16 +135,21 @@ internal class FileHelper(
         }
     }
 
-    private fun activateStagedBundle() {
-        backupDir.deleteRecursively()
-        if (bundleDir.exists() && !bundleDir.renameTo(backupDir)) {
-            throw IOException("Failed to move current bundle aside: ${bundleDir.absolutePath}")
+    override fun activateStagedBundle() {
+        try {
+            backupDir.deleteRecursively()
+            if (bundleDir.exists() && !bundleDir.renameTo(backupDir)) {
+                throw IOException("Failed to move current bundle aside: ${bundleDir.absolutePath}")
+            }
+            if (!stagingDir.renameTo(bundleDir)) {
+                backupDir.renameTo(bundleDir)
+                throw IOException("Failed to activate new bundle: ${bundleDir.absolutePath}")
+            }
+            backupDir.deleteRecursively()
+        } catch (e: Exception) {
+            stagingDir.deleteRecursively()
+            throw e
         }
-        if (!stagingDir.renameTo(bundleDir)) {
-            backupDir.renameTo(bundleDir)
-            throw IOException("Failed to activate new bundle: ${bundleDir.absolutePath}")
-        }
-        backupDir.deleteRecursively()
     }
 
     override suspend fun readBundle(): List<Bundle>? = withContext(Dispatchers.IO) {

@@ -4,12 +4,16 @@ import com.lingohub.android.cdn.core.LingoHub
 import com.lingohub.android.cdn.core.LingoHubSDKError
 import com.lingohub.android.cdn.core.UpdateManager
 import com.lingohub.android.cdn.data.model.BundleInfo
+import com.lingohub.android.cdn.data.model.BundleMetadata
 import com.lingohub.android.cdn.data.model.CdnErrorResponse
 import com.lingohub.android.cdn.data.model.Environment
 import com.lingohub.android.cdn.utils.LingoHubLogger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.ResponseBody
@@ -24,11 +28,13 @@ import java.util.concurrent.atomic.AtomicBoolean
  *
  * @param clock the time update checks are paced by; tests move it instead of waiting.
  * @param waitBeforeRetry suspends a cycle before its single retry after a 5xx; tests record the delay.
+ * @param ioDispatcher runs the activation of a release, which blocks on the disk; tests keep it on their scheduler.
  */
 internal class Updater(
     val scope: ICoroutineScope = LingoHubScope(),
     private val clock: () -> Long = System::currentTimeMillis,
     private val waitBeforeRetry: suspend (Long) -> Unit = { delay(it) },
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private val api = LingoHub.api
     private val updateManager = UpdateManager.Companion.getInstance()
@@ -47,6 +53,8 @@ internal class Updater(
                 runUpdate()
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: CycleSuperseded) {
+                LingoHubLogger.logger.onInfo("the SDK was configured again during the update check, which stopped without changes")
             } catch (e: LingoHubSDKError) {
                 failUpdate(e)
             } catch (e: HttpException) {
@@ -82,31 +90,52 @@ internal class Updater(
         try {
             cycle.run()
             cycle.schedule = cycle.schedule.recordSuccess(clock())
-        } finally {
-            // Keeps what the cycle recorded: a pause, or the end of a series of 5xx. Unless the app
-            // reconfigured the SDK while the cycle ran: the schedule then belongs to a scope no longer in
-            // use, and saving it would replace the one the current configuration recorded meanwhile.
-            if (context == CycleContext.current()) {
-                LingoHub.preferences.saveUpdateSchedule(cycle.schedule)
-            } else {
-                LingoHubLogger.logger.onInfo("the SDK was reconfigured during the update check, its schedule is not saved")
-            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Keeps what the cycle recorded: a pause, or the end of a series of 5xx
+            cycle.save()
+            throw e
+        }
+        cycle.save()
+    }
+
+    /**
+     * The configuration an update cycle runs with, captured when it starts: every request of the cycle is
+     * sent with it, and its answers are recorded under its scope. The cycle belongs to the [generation] of
+     * the configuration: once the app calls `configure()` again, the cycle stops without changes, see
+     * [CycleSuperseded].
+     */
+    private data class CycleContext(
+        val generation: Long,
+        val apiKey: String,
+        val environment: Environment,
+        val appVersion: String,
+    ) {
+        val scope: UpdateSchedule.Scope
+            get() = UpdateSchedule.Scope.of(appVersion, environment, apiKey)
+
+        fun ensureCurrent() {
+            if (generation != LingoHub.configurationGeneration) throw CycleSuperseded()
+        }
+
+        companion object {
+            // The generation first: should configure() run meanwhile, the cycle is superseded from the start
+            fun current() = CycleContext(
+                LingoHub.configurationGeneration,
+                LingoHub.apiKey.orEmpty(),
+                LingoHub.environment,
+                LingoHub.appVersionName,
+            )
         }
     }
 
     /**
-     * The configuration an update cycle runs with, captured when it starts. Every request of the cycle is
-     * sent with it and its answers are recorded under its scope, even if the app calls `configure()` again
-     * while the cycle waits for its retry.
+     * Ends a cycle that finds the SDK configured again: it sends no further request, installs nothing,
+     * records nothing and reports nothing. Whatever it ended with belongs to a configuration no longer in use;
+     * the app's next update() call checks with the new one.
      */
-    private data class CycleContext(val apiKey: String, val environment: Environment, val appVersion: String) {
-        val scope: UpdateSchedule.Scope
-            get() = UpdateSchedule.Scope.of(appVersion, environment, apiKey)
-
-        companion object {
-            fun current() = CycleContext(LingoHub.apiKey.orEmpty(), LingoHub.environment, LingoHub.appVersionName)
-        }
-    }
+    private class CycleSuperseded : Exception()
 
     /** One update cycle. Its checks record the CDN's answers into [schedule]. */
     private inner class Cycle(private val context: CycleContext, var schedule: UpdateSchedule) {
@@ -118,20 +147,55 @@ internal class Updater(
          */
         suspend fun run() {
             var bundleInfo = check(retryingServerErrors = true) ?: return
+            context.ensureCurrent()
             val bundle = try {
                 download(bundleInfo)
             } catch (e: HttpException) {
+                context.ensureCurrent()
                 LingoHubLogger.logger.onInfo("bundle download failed (HTTP ${e.code()}), checking again for a fresh download URL")
                 bundleInfo = check(retryingServerErrors = false) ?: return
+                context.ensureCurrent()
                 download(bundleInfo)
             }
             // The download stays outside the lock; the disk transition (install,
             // refresh, metadata) must not interleave with the startup purge/refresh.
             LingoHub.bundleTransitionLock.withLock {
-                LingoHub.fileHelper.installBundle(bundle.byteStream())
+                LingoHub.fileHelper.stageBundle(bundle.byteStream())
+                activate(bundleInfo)
                 LingoHub.onBundleUpdated(bundleInfo)
             }
             LingoHubLogger.logger.onDebug("finished")
+        }
+
+        /**
+         * Makes the staged release the live one and records it as installed, both while configure() waits:
+         * a release must not go live once the app has configured the SDK again, and a check with the new
+         * configuration must find the metadata of the bundle that is live.
+         */
+        private suspend fun activate(bundleInfo: BundleInfo) {
+            val activated = withContext(ioDispatcher) {
+                LingoHub.runIfConfigured(context.generation) {
+                    LingoHub.fileHelper.activateStagedBundle()
+                    val metadata = BundleMetadata(bundleInfo.id, context.appVersion)
+                    LingoHubLogger.logger.onDebug("saving bundle meta: $metadata")
+                    LingoHub.preferences.saveBundleMetadata(metadata)
+                }
+            }
+            if (!activated) {
+                LingoHub.fileHelper.discardStagedBundle()
+                throw CycleSuperseded()
+            }
+        }
+
+        /**
+         * Saves what the cycle recorded, unless the app configured the SDK again meanwhile: the schedule
+         * then belongs to a configuration no longer in use, and saving it would replace the one the current
+         * configuration records. The cycle's outcome is void then, and [CycleSuperseded] replaces it.
+         */
+        fun save() {
+            if (!LingoHub.runIfConfigured(context.generation) { LingoHub.preferences.saveUpdateSchedule(schedule) }) {
+                throw CycleSuperseded()
+            }
         }
 
         /**
@@ -179,6 +243,7 @@ internal class Updater(
                     if (delayMs != null) {
                         LingoHubLogger.logger.onInfo("server error (HTTP $code), retrying once in $delayMs ms")
                         waitBeforeRetry(delayMs)
+                        context.ensureCurrent()
                         return check(retryingServerErrors = false)
                     }
                     schedule = schedule.recordServerError(code, codes, retryAfterMs, clock())

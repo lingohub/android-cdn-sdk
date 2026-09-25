@@ -7,7 +7,6 @@ import androidx.annotation.Keep
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.app.ViewPumpAppCompatDelegate
 import com.lingohub.android.cdn.data.model.BundleInfo
-import com.lingohub.android.cdn.data.model.BundleMetadata
 import com.lingohub.android.cdn.data.model.Environment
 import com.lingohub.android.cdn.ui.InflationInterceptor
 import com.lingohub.android.cdn.utils.BundleHelper
@@ -56,6 +55,14 @@ object LingoHub {
     // cannot interleave and an older snapshot can never be published last.
     internal val bundleTransitionLock = Mutex()
 
+    // Counts configure() calls. An update cycle belongs to the configuration it started with: once the
+    // app configures the SDK again, the cycle stops without changes (see Updater and runIfConfigured).
+    private val configurationLock = Any()
+
+    @Volatile
+    internal var configurationGeneration = 0L
+        private set
+
     // Add UpdateManager instance
     private val updateManager by lazy { UpdateManager.getInstance() }
 
@@ -79,6 +86,9 @@ object LingoHub {
         environment: Environment? = Environment.PRODUCTION,
         logLevel: LingoHubLogLevel = LingoHubLogLevel.NONE
     ) {
+        // Supersedes running update cycles before anything changes; one that is activating its
+        // release right now finishes that first (see runIfConfigured)
+        synchronized(configurationLock) { configurationGeneration++ }
         LingoHubLogger.init(logLevel)
         SnapKitHelper.enableIfTest()
         this.environment = environment ?: Environment.PRODUCTION
@@ -174,16 +184,24 @@ object LingoHub {
         }
     }
 
+    /**
+     * Runs [block] if the SDK is still configured as in [generation] and returns whether it did. configure()
+     * waits for [block] meanwhile, so what [block] changes, such as the live bundle, changes entirely before
+     * the app configures the SDK again, or not at all. Keep [block] brief: configure() usually runs on the main thread.
+     */
+    internal fun runIfConfigured(generation: Long, block: () -> Unit): Boolean = synchronized(configurationLock) {
+        if (generation != configurationGeneration) return false
+        block()
+        true
+    }
+
+    /** Serves a release an update cycle just activated (see Updater) and tells the listeners. */
     internal suspend fun onBundleUpdated(bundleInfo: BundleInfo) {
         // Await the disk read before clearing caches and notifying listeners:
         // otherwise a listener-triggered lookup can rebuild (and cache) a
         // repository from the previous in-memory bundle.
         bundleHelper.refresh()
         clearRepositories()
-
-        val metaData = BundleMetadata(bundleInfo.id, appVersionName)
-        LingoHubLogger.logger.onDebug("saving bundle meta: $metaData")
-        preferences.saveBundleMetadata(metaData)
         LingoHubLogger.logger.onInfo("downloaded new bundle with id: ${bundleInfo.id}")
 
         updateManager.notifyDataChanged()

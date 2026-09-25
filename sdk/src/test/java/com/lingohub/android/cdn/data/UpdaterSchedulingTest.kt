@@ -8,6 +8,7 @@ import com.lingohub.android.cdn.data.model.BundleInfo
 import com.lingohub.android.cdn.data.model.Environment
 import com.lingohub.android.cdn.utils.InMemorySharedPreferences
 import com.lingohub.android.cdn.utils.RecordingListener
+import com.lingohub.android.cdn.utils.awaitBundleTransitions
 import com.lingohub.android.cdn.utils.configureLingoHub
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
@@ -25,6 +26,7 @@ import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
 import org.mockito.kotlin.inOrder
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -35,8 +37,8 @@ import java.util.concurrent.TimeUnit
 
 /**
  * The "Failures and retries" policy end to end through [LingoHub.update] (lingohub/organization#2351):
- * minimum interval, the single retry after a 5xx, pauses that survive relaunches, and the fresh check
- * after a failed download.
+ * minimum interval, the single retry after a 5xx, pauses that survive relaunches, the fresh check
+ * after a failed download, and cycles that configure() supersedes.
  */
 @Timeout(10, unit = TimeUnit.SECONDS)
 class UpdaterSchedulingTest : BaseContextTest() {
@@ -54,10 +56,10 @@ class UpdaterSchedulingTest : BaseContextTest() {
         super.setup()
         // The real Preferences over storage that survives a "relaunch"
         whenever(baseContext.getSharedPreferences(any(), any())).thenReturn(storage)
+        packageInfo.versionName = APP_VERSION
         configureLingoHub(baseContext)
         LingoHub.api = api
         LingoHub.fileHelper = fileHelper
-        LingoHub.appVersionName = APP_VERSION
         relaunch()
         LingoHub.addUpdateListener(listener)
     }
@@ -73,6 +75,18 @@ class UpdaterSchedulingTest : BaseContextTest() {
     private fun relaunch() {
         LingoHub.preferences = Preferences(baseContext)
         LingoHub.updater = Updater(BlockingCoroutineScope(), clock = { now }, waitBeforeRetry = { waits += it })
+    }
+
+    /**
+     * The app calling configure() again, as it does to switch environments, which supersedes running update
+     * cycles. The new SDK objects talk to this test's fakes.
+     */
+    private fun reconfigure(apiKey: String, environment: Environment) {
+        LingoHub.configure(baseContext, apiKey, environment)
+        awaitBundleTransitions()
+        LingoHub.api = api
+        LingoHub.fileHelper = fileHelper
+        relaunch()
     }
 
     /** The schedule stored for the configured app version, environment and key. */
@@ -105,7 +119,7 @@ class UpdaterSchedulingTest : BaseContextTest() {
         whenever(api.downloadBundle(any())).thenReturn("bundle".toResponseBody())
 
         LingoHub.update()
-        verify(fileHelper).installBundle(any())
+        verify(fileHelper).activateStagedBundle()
         LingoHub.update()
         verify(api, times(1)).getBundleInfo(any(), any())
 
@@ -284,17 +298,14 @@ class UpdaterSchedulingTest : BaseContextTest() {
     }
 
     @Test
-    fun `reconfiguring during the retry wait keeps the cycle on its configuration`() = runTest {
-        LingoHub.apiKey = "lh-cdn_test-key"
-        whenever(api.getBundleInfo(any(), any())).thenReturn(problem(503), problem(429, "USAGE_LIMIT_EXCEEDED"))
-        val stagingScope = UpdateSchedule.Scope.of(APP_VERSION, Environment.STAGING, "lh-cdn_staging-key")
-        val stagingPause = UpdateSchedule(stagingScope).recordUsageLimit(listOf("USAGE_LIMIT_EXCEEDED"), null, now)
+    fun `configure() during the retry wait stops the cycle without changes`() = runTest {
+        reconfigure("lh-cdn_test-key", Environment.TEST)
+        whenever(api.getBundleInfo(any(), any())).thenReturn(problem(503), release(id = "staging-release"), release(id = "old-test-release"))
+        whenever(api.downloadBundle(any())).thenReturn("bundle".toResponseBody())
         LingoHub.updater = Updater(BlockingCoroutineScope(), clock = { now }, waitBeforeRetry = {
-            // The app configures staging while the TEST cycle waits for its retry, and a staging update
-            // records a pause of its own meanwhile
-            LingoHub.environment = Environment.STAGING
-            LingoHub.apiKey = "lh-cdn_staging-key"
-            LingoHub.preferences.saveUpdateSchedule(stagingPause)
+            // The app configures staging while the TEST cycle waits for its retry, and updates
+            reconfigure("lh-cdn_staging-key", Environment.STAGING)
+            LingoHub.update()
         })
 
         LingoHub.update()
@@ -302,10 +313,47 @@ class UpdaterSchedulingTest : BaseContextTest() {
         val authorizations = argumentCaptor<String>()
         val bodies = argumentCaptor<PackageRequest>()
         verify(api, times(2)).getBundleInfo(authorizations.capture(), bodies.capture())
-        assertEquals(listOf("Bearer lh-cdn_test-key", "Bearer lh-cdn_test-key"), authorizations.allValues, "The retry belongs to the cycle it retries")
-        assertEquals(listOf("TEST", "TEST"), bodies.allValues.map { it.distributionEnvironment })
-        assertEquals(listOf(429), listener.failures.map { it.statusCode })
-        assertEquals(stagingPause, Preferences(baseContext).getUpdateSchedule(stagingScope), "A replaced cycle must not overwrite the current schedule")
+        assertEquals(listOf("Bearer lh-cdn_test-key", "Bearer lh-cdn_staging-key"), authorizations.allValues, "No retry for a configuration the app has left")
+        assertEquals(listOf("TEST", "STAGING"), bodies.allValues.map { it.distributionEnvironment })
+        verify(fileHelper, times(1)).activateStagedBundle()
+        assertEquals("staging-release", Preferences(baseContext).getBundleMetadata()?.bundleIdentifier)
+        assertEquals(now, storedSchedule.lastSuccessfulUpdateMs, "The superseded cycle must not overwrite the staging schedule")
+        assertEquals(1, listener.updates)
+        assertEquals(emptyList<LingoHubSDKError>(), listener.failures)
+    }
+
+    @Test
+    fun `configure() during the download keeps the release of the cycle from going live`() = runTest {
+        whenever(api.getBundleInfo(any(), any())).thenReturn(release(id = "old-test-release"))
+        whenever(api.downloadBundle(any())).thenAnswer {
+            // The app configures staging while the TEST release downloads
+            reconfigure("lh-cdn_staging-key", Environment.STAGING)
+            "bundle".toResponseBody()
+        }
+
+        LingoHub.update()
+
+        verify(fileHelper).stageBundle(any())
+        verify(fileHelper, never()).activateStagedBundle()
+        verify(fileHelper).discardStagedBundle()
+        assertNull(Preferences(baseContext).getBundleMetadata(), "No metadata for a release that never went live")
+        assertNull(storedSchedule.lastSuccessfulUpdateMs, "Nothing recorded for staging, which has not been checked")
+        assertEquals(0, listener.updates)
+        assertEquals(emptyList<LingoHubSDKError>(), listener.failures)
+    }
+
+    @Test
+    fun `failure of a superseded cycle is not reported`() = runTest {
+        whenever(api.getBundleInfo(any(), any())).thenAnswer {
+            // The app configures staging while the TEST check is on its way
+            reconfigure("lh-cdn_staging-key", Environment.STAGING)
+            problem(429, "USAGE_LIMIT_EXCEEDED")
+        }
+
+        LingoHub.update()
+
+        assertEquals(emptyList<LingoHubSDKError>(), listener.failures)
+        assertNull(storedSchedule.cooldown, "The TEST pause must not replace the staging schedule")
     }
 
     // --- Client errors ---
@@ -337,7 +385,7 @@ class UpdaterSchedulingTest : BaseContextTest() {
         val downloads = inOrder(api)
         downloads.verify(api).downloadBundle("$FILES_URL?expired")
         downloads.verify(api).downloadBundle("$FILES_URL?fresh")
-        verify(fileHelper).installBundle(any())
+        verify(fileHelper).activateStagedBundle()
         assertEquals(emptyList<LingoHubSDKError>(), listener.failures)
     }
 
@@ -384,8 +432,8 @@ class UpdaterSchedulingTest : BaseContextTest() {
         const val APP_VERSION = "1.0.0"
         const val FILES_URL = "https://cdn.lingohub.com/bundles/test.zip"
 
-        fun release(filesUrl: String = FILES_URL): Response<BundleInfo> =
-            Response.success(BundleInfo(id = "123123", name = "Version 1", filesUrl = filesUrl, createdAt = "2022-01-01T00:00:00.000Z"))
+        fun release(filesUrl: String = FILES_URL, id: String = "123123"): Response<BundleInfo> =
+            Response.success(BundleInfo(id = id, name = "Version 1", filesUrl = filesUrl, createdAt = "2022-01-01T00:00:00.000Z"))
 
         fun noContent(): Response<BundleInfo> = Response.success(204, null as BundleInfo?)
 

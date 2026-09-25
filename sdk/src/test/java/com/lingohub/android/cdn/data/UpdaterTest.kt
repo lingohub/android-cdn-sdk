@@ -13,6 +13,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -76,7 +77,8 @@ class UpdaterTest : BaseContextTest() {
             whenever(api.getBundleInfo(any(), any())).thenReturn(mockedBundle)
             whenever(api.downloadBundle(any())).thenReturn(downloadResponse)
             LingoHub.updater.update()
-            verify(fileHelper, times(1)).installBundle(any())
+            verify(fileHelper, times(1)).stageBundle(any())
+            verify(fileHelper, times(1)).activateStagedBundle()
         }
     }
 
@@ -90,7 +92,7 @@ class UpdaterTest : BaseContextTest() {
             LingoHub.update()
 
             val order = inOrder(fileHelper, listener)
-            order.verify(fileHelper).installBundle(any())
+            order.verify(fileHelper).activateStagedBundle()
             order.verify(fileHelper).readBundle()
             order.verify(listener).onUpdate()
         }
@@ -101,7 +103,7 @@ class UpdaterTest : BaseContextTest() {
     fun `Concurrent update calls are single-flight`() = runTest {
         whenever(api.getBundleInfo(any(), any())).thenReturn(getMockedBundleInfo())
         whenever(api.downloadBundle(any())).thenReturn("test".toResponseBody())
-        val updater = Updater(QueueingCoroutineScope(this))
+        val updater = Updater(QueueingCoroutineScope(this), ioDispatcher = StandardTestDispatcher(testScheduler))
 
         updater.update()
         updater.update()

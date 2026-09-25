@@ -20,6 +20,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -63,6 +64,29 @@ class FileHelperTest {
 
         val result = fileHelper.readBundle()
         assertEquals("Hi there", result?.single()?.items?.single()?.value)
+    }
+
+    @Test
+    fun `a staged bundle goes live only once activated`() = runTest {
+        fileHelper.installBundle(zipWithBundle("en", "greeting", "Hello"))
+
+        fileHelper.stageBundle(zipWithBundle("en", "greeting", "Hi there"))
+        assertEquals("Hello", fileHelper.readBundle()?.single()?.items?.single()?.value)
+
+        fileHelper.activateStagedBundle()
+        assertEquals("Hi there", fileHelper.readBundle()?.single()?.items?.single()?.value)
+        assertFalse(stagingDir.exists(), "staging directory should be gone after the activation")
+    }
+
+    @Test
+    fun `a discarded staged bundle leaves the live bundle alone`() = runTest {
+        fileHelper.installBundle(zipWithBundle("en", "greeting", "Hello"))
+
+        fileHelper.stageBundle(zipWithBundle("en", "greeting", "Hi there"))
+        fileHelper.discardStagedBundle()
+
+        assertEquals("Hello", fileHelper.readBundle()?.single()?.items?.single()?.value)
+        assertFalse(stagingDir.exists(), "staging leftovers must be cleaned up")
     }
 
     @Test
@@ -223,6 +247,12 @@ class FileHelperTest {
         fileHelper.deleteBundle()
 
         assertFalse(bundleDir.exists(), "bundle directory should be deleted")
+    }
+
+    /** Stages and activates a release archive, as an update cycle does. */
+    private suspend fun FileHelper.installBundle(inputStream: InputStream) {
+        stageBundle(inputStream)
+        activateStagedBundle()
     }
 
     private suspend fun assertInstallFails(zipBytes: ByteArray) {
