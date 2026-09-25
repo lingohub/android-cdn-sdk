@@ -51,6 +51,7 @@ class UpdaterTest : BaseContextTest() {
         Dispatchers.setMain(testDispatcher)
         LingoHub.api = api
         LingoHub.preferences = preferences
+        whenever(preferences.getUpdateSchedule(any())).thenAnswer { UpdateSchedule(it.getArgument(0)) }
         LingoHub.fileHelper = fileHelper
         LingoHub.updater = Updater(BlockingCoroutineScope())
     }
@@ -224,7 +225,7 @@ class UpdaterTest : BaseContextTest() {
 /**
  * Executes launched blocks synchronously so tests can verify side effects immediately.
  */
-private class BlockingCoroutineScope : ICoroutineScope {
+internal class BlockingCoroutineScope : ICoroutineScope {
     override val coroutineContext: CoroutineContext = Dispatchers.Unconfined
 
     override fun launch(block: suspend CoroutineScope.() -> Unit): Job {

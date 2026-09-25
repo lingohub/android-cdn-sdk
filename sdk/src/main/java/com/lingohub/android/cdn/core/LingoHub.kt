@@ -1,6 +1,7 @@
 package com.lingohub.android.cdn.core
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import androidx.activity.ComponentActivity
 import androidx.annotation.Keep
 import androidx.appcompat.app.AppCompatDelegate
@@ -21,11 +22,13 @@ import com.lingohub.android.cdn.data.IRepository
 import com.lingohub.android.cdn.data.LingoHubScope
 import com.lingohub.android.cdn.data.Preferences
 import com.lingohub.android.cdn.data.Repository
+import com.lingohub.android.cdn.data.UpdatePolicy
 import com.lingohub.android.cdn.data.Updater
 import dev.b3nedikt.viewpump.ViewPump
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.*
+import java.util.concurrent.TimeUnit
 
 @Keep
 object LingoHub {
@@ -56,6 +59,18 @@ object LingoHub {
     // Add UpdateManager instance
     private val updateManager by lazy { UpdateManager.getInstance() }
 
+    // The minimum time between update checks: the app's choice (setMinimumCheckInterval), otherwise
+    // 15 minutes, and none in debuggable builds so that every update() call checks during development.
+    @Volatile
+    internal var minimumCheckIntervalOverrideMs: Long? = null
+
+    @Volatile
+    private var debuggable = false
+
+    internal val minimumCheckIntervalMs: Long
+        get() = minimumCheckIntervalOverrideMs
+            ?: if (debuggable) 0 else UpdatePolicy.RELEASE_MINIMUM_CHECK_INTERVAL_MS
+
     @Keep
     @JvmStatic
     fun configure(
@@ -74,6 +89,7 @@ object LingoHub {
         packageName = context.packageName
         val packageInfo = context.packageManager.getPackageInfo(packageName, 0)
         appVersionName = packageInfo.versionName.toString()
+        debuggable = ((context.applicationInfo?.flags ?: 0) and ApplicationInfo.FLAG_DEBUGGABLE) != 0
 
         fileHelper = FileHelper(context.filesDir)
 
@@ -104,12 +120,31 @@ object LingoHub {
         )
     }
 
+    /**
+     * Checks the CDN for a newer release and installs it; [LingoHubUpdateListener]s hear about the
+     * outcome. Call it whenever your app starts or comes to the foreground: within the minimum interval
+     * after the last successful update (see [setMinimumCheckInterval]) it returns without contacting the
+     * CDN, and while a failure has paused update checks, it reports that failure to
+     * [LingoHubUpdateListener.onFailure] the same way (see "Failures and retries" in the README).
+     */
     @Keep
     @JvmStatic
     fun update() {
         ensureInit()
         LingoHubLogger.logger.onInfo("checking for bundle update (${environment.name})")
         updater.update()
+    }
+
+    /**
+     * Sets the minimum time between update checks. For this long after the last successful update,
+     * [update] returns without contacting the CDN. Defaults to 15 minutes, and to 0 in debuggable
+     * builds so that every call checks while you develop. Pauses after failed checks apply regardless
+     * of it. Negative values count as 0.
+     */
+    @Keep
+    @JvmStatic
+    fun setMinimumCheckInterval(interval: Long, unit: TimeUnit) {
+        minimumCheckIntervalOverrideMs = unit.toMillis(interval.coerceAtLeast(0))
     }
 
     @Keep

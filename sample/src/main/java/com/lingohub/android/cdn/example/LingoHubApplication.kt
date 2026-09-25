@@ -1,17 +1,13 @@
 package com.lingohub.android.cdn.example
 
 import android.app.Application
-import com.lingohub.android.cdn.example.helpers.CacheManager
 import com.lingohub.android.cdn.core.LingoHub
 import com.lingohub.android.cdn.data.model.Environment
 import com.lingohub.android.cdn.utils.LingoHubLogLevel
 
 class LingoHubApplication : Application() {
-    private lateinit var cacheManager: CacheManager
-
     override fun onCreate() {
         super.onCreate()
-        cacheManager = CacheManager(this)
 
         // Configure LingoHub with your project credentials.
         // The demo distribution ("Wanderly CDN Demo") lives in the DEVELOPMENT
@@ -23,10 +19,9 @@ class LingoHubApplication : Application() {
             logLevel = if (BuildConfig.DEBUG) LingoHubLogLevel.FULL else LingoHubLogLevel.NONE
         )
 
-        if (cacheManager.shouldFetchStrings()) {
-            LingoHub.update()
-            cacheManager.updateLastFetchTime()
-        }
+        // Check for updates on every start. The SDK paces the requests: at most
+        // one check every 15 minutes in release builds.
+        LingoHub.update()
     }
 
 

@@ -3,6 +3,7 @@ package com.lingohub.android.cdn.core
 import com.lingohub.android.cdn.data.Preferences
 import com.lingohub.android.cdn.data.Repository
 import com.lingohub.android.cdn.data.model.Environment
+import com.lingohub.android.cdn.utils.awaitBundleTransitions
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.mockito.kotlin.*
@@ -18,6 +19,7 @@ class LingoHubTest: BaseContextTest() {
         mockRepository = mock()
         mockLingoHubUpdateListener = mock()
         LingoHub.configure(baseContext, "test-api-key", Environment.PRODUCTION)
+        awaitBundleTransitions()
         LingoHub.addRepository(Locale.ENGLISH,  mockRepository)
         LingoHub.addUpdateListener( mockLingoHubUpdateListener)
     }
@@ -47,6 +49,7 @@ class LingoHubTest: BaseContextTest() {
         whenever(sharedPreferences.getString(Preferences.CLIENT_ID, null)).thenReturn("stored-client-id")
 
         LingoHub.configure(baseContext, "test-api-key", Environment.PRODUCTION)
+        awaitBundleTransitions()
 
         assert(LingoHub.clientId == "stored-client-id")
         verify(sharedPreferencesEditor, never()).putString(eq(Preferences.CLIENT_ID), any())
