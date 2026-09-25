@@ -1,8 +1,10 @@
 package com.lingohub.android.cdn.data
 
 import android.content.Context
+import com.lingohub.android.cdn.data.model.Environment
 import com.lingohub.android.cdn.utils.InMemorySharedPreferences
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -18,6 +20,7 @@ class UpdatePolicyTest {
     private val minute = 60_000L
     private val hour = 60 * minute
     private val start = 1_800_000_000_000L
+    private val scope = UpdateSchedule.Scope.of("1.0.0", Environment.PRODUCTION, "lh-cdn_key")
 
     // --- Retry after a 5xx ---
 
@@ -69,7 +72,7 @@ class UpdatePolicyTest {
 
     @Test
     fun `minimum interval counts from the last successful update`() {
-        val fresh = UpdateSchedule("1.0.0")
+        val fresh = UpdateSchedule(scope)
         assertEquals(UpdateSchedule.Decision.Check, fresh.decide(start, 15 * minute))
 
         val schedule = fresh.recordSuccess(start)
@@ -83,17 +86,17 @@ class UpdatePolicyTest {
 
     @Test
     fun `clock turned back does not hold updates`() {
-        val updated = UpdateSchedule("1.0.0").recordSuccess(start)
+        val updated = UpdateSchedule(scope).recordSuccess(start)
         assertEquals(UpdateSchedule.Decision.Check, updated.decide(start - hour, 15 * minute))
 
-        val paused = UpdateSchedule("1.0.0").recordUsageLimit(emptyList(), null, start)
+        val paused = UpdateSchedule(scope).recordUsageLimit(emptyList(), null, start)
         assertEquals(UpdateSchedule.Decision.Paused(paused.cooldown!!), paused.decide(start - 2 * hour, 0), "Within the longest pause the SDK sets")
         assertEquals(UpdateSchedule.Decision.Check, paused.decide(start - 24 * hour, 0), "Further out than any pause the SDK sets")
     }
 
     @Test
     fun `server errors pause with backoff until the CDN answers again`() {
-        var schedule = UpdateSchedule("1.0.0").recordServerError(503, 2_000, start)
+        var schedule = UpdateSchedule(scope).recordServerError(503, 2_000, start)
         val first = UpdateSchedule.Cooldown(start + 5 * minute, 503, emptyList())
         assertEquals(first, schedule.cooldown)
         assertEquals(UpdateSchedule.Decision.Paused(first), schedule.decide(start + 5 * minute - 1, 0))
@@ -114,7 +117,7 @@ class UpdatePolicyTest {
 
     @Test
     fun `usage limit pauses checks and ends a server error series`() {
-        val schedule = UpdateSchedule("1.0.0")
+        val schedule = UpdateSchedule(scope)
             .recordServerError(503, null, start)
             .recordUsageLimit(listOf("USAGE_LIMIT_EXCEEDED"), 3 * hour, start)
 
@@ -138,9 +141,9 @@ class UpdatePolicyTest {
     // --- Persistence ---
 
     @Test
-    fun `schedule survives a relaunch for the same app version only`() {
+    fun `schedule survives a relaunch for the same scope only`() {
         val storage = InMemorySharedPreferences()
-        val schedule = UpdateSchedule("1.0.0")
+        val schedule = UpdateSchedule(scope)
             .recordSuccess(start)
             .recordServerError(503, null, start)
             .recordUsageLimit(listOf("USAGE_LIMIT_EXCEEDED", "OTHER"), null, start)
@@ -148,21 +151,38 @@ class UpdatePolicyTest {
         Preferences(contextWith(storage)).saveUpdateSchedule(schedule)
         val relaunched = Preferences(contextWith(storage))
 
-        assertEquals(schedule, relaunched.getUpdateSchedule("1.0.0"))
-        assertEquals(UpdateSchedule("1.0.1"), relaunched.getUpdateSchedule("1.0.1"), "A new app version checks right away")
+        assertEquals(schedule, relaunched.getUpdateSchedule(scope))
+        // Another app version, environment or CDN key checks right away
+        for (other in listOf(
+            UpdateSchedule.Scope.of("1.0.1", Environment.PRODUCTION, "lh-cdn_key"),
+            UpdateSchedule.Scope.of("1.0.0", Environment.STAGING, "lh-cdn_key"),
+            UpdateSchedule.Scope.of("1.0.0", Environment.PRODUCTION, "lh-cdn_other"),
+        )) {
+            assertEquals(UpdateSchedule(other), relaunched.getUpdateSchedule(other), "$other")
+        }
+    }
+
+    @Test
+    fun `scope stores only a digest of the CDN key`() {
+        val storage = InMemorySharedPreferences()
+
+        Preferences(contextWith(storage)).saveUpdateSchedule(UpdateSchedule(scope))
+
+        assertFalse(storage.all.values.any { "$it".contains("lh-cdn_key") })
+        assertEquals(64, scope.apiKeyDigest.length)
     }
 
     @Test
     fun `schedule without a pause or a successful update round-trips`() {
         val storage = InMemorySharedPreferences()
         val preferences = Preferences(contextWith(storage))
-        preferences.saveUpdateSchedule(UpdateSchedule("1.0.0").recordServerError(500, null, start))
-        val schedule = UpdateSchedule("1.0.0").recordAnswer()
+        preferences.saveUpdateSchedule(UpdateSchedule(scope).recordServerError(500, null, start))
+        val schedule = UpdateSchedule(scope).recordAnswer()
 
         preferences.saveUpdateSchedule(schedule)
 
-        assertEquals(schedule, Preferences(contextWith(storage)).getUpdateSchedule("1.0.0"))
-        assertEquals(UpdateSchedule("1.0.0"), Preferences(contextWith(InMemorySharedPreferences())).getUpdateSchedule("1.0.0"))
+        assertEquals(schedule, Preferences(contextWith(storage)).getUpdateSchedule(scope))
+        assertEquals(UpdateSchedule(scope), Preferences(contextWith(InMemorySharedPreferences())).getUpdateSchedule(scope))
     }
 
     // --- Retry-After ---

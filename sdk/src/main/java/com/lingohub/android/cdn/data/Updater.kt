@@ -66,7 +66,8 @@ internal class Updater(
     }
 
     private suspend fun runUpdate() {
-        val schedule = LingoHub.preferences.getUpdateSchedule(LingoHub.appVersionName)
+        val scope = UpdateSchedule.Scope.of(LingoHub.appVersionName, LingoHub.environment, LingoHub.apiKey.orEmpty())
+        val schedule = LingoHub.preferences.getUpdateSchedule(scope)
         when (val decision = schedule.decide(clock(), LingoHub.minimumCheckIntervalMs)) {
             is UpdateSchedule.Decision.Paused -> {
                 LingoHubLogger.logger.onInfo("update checks are paused until ${Date(decision.cooldown.untilMs)}, skipping the check")

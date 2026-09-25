@@ -6,6 +6,7 @@ import com.lingohub.android.cdn.core.LingoHub
 import com.lingohub.android.cdn.core.LingoHubSDKError
 import com.lingohub.android.cdn.core.LingoHubUpdateListener
 import com.lingohub.android.cdn.data.model.BundleInfo
+import com.lingohub.android.cdn.data.model.Environment
 import com.lingohub.android.cdn.utils.InMemorySharedPreferences
 import com.lingohub.android.cdn.utils.configureLingoHub
 import kotlinx.coroutines.test.runTest
@@ -73,8 +74,11 @@ class UpdaterSchedulingTest : BaseContextTest() {
         LingoHub.updater = Updater(BlockingCoroutineScope(), clock = { now }, waitBeforeRetry = { waits += it })
     }
 
+    /** The schedule stored for the configured app version, environment and key. */
     private val storedSchedule: UpdateSchedule
-        get() = Preferences(baseContext).getUpdateSchedule(APP_VERSION)
+        get() = Preferences(baseContext).getUpdateSchedule(
+            UpdateSchedule.Scope.of(LingoHub.appVersionName, LingoHub.environment, LingoHub.apiKey.orEmpty())
+        )
 
     /** Records what [LingoHub.update] reports. */
     private class RecordingListener : LingoHubUpdateListener {
@@ -265,6 +269,31 @@ class UpdaterSchedulingTest : BaseContextTest() {
         LingoHub.update()
 
         verify(api, times(2)).getBundleInfo(any())
+    }
+
+    @Test
+    fun `another environment or CDN key checks despite the interval and a pause`() = runTest {
+        whenever(api.getBundleInfo(any())).thenReturn(noContent(), problem(429, "USAGE_LIMIT_EXCEEDED"), noContent(), noContent())
+
+        // A successful check starts the minimum interval
+        LingoHub.update()
+
+        // Staging is checked all the same, and its 429 pauses staging
+        LingoHub.environment = Environment.STAGING
+        LingoHub.update()
+        verify(api, times(2)).getBundleInfo(any())
+        assertEquals(listOf(429), listener.failures.map { it.statusCode })
+
+        // Another CDN key is checked despite that pause
+        LingoHub.apiKey = "lh-cdn_another-key"
+        LingoHub.update()
+        verify(api, times(3)).getBundleInfo(any())
+
+        // As is the next environment switch, while the interval of the last one runs
+        LingoHub.environment = Environment.TEST
+        LingoHub.update()
+        verify(api, times(4)).getBundleInfo(any())
+        assertEquals(1, listener.failures.size)
     }
 
     // --- Client errors ---
