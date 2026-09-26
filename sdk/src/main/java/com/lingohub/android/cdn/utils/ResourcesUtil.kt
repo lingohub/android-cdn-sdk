@@ -15,17 +15,19 @@ internal class ResourcesUtil(
     private val repository: IRepository
         get() {
             val locale = currentLocale()
-            LingoHubLogger.logger.onDebug("$TAG, Getting repository for locale: $locale")
+            LingoHubLogger.debug { "$TAG, Getting repository for locale: $locale" }
             return LingoHub.getRepository(locale)
         }
 
     private fun getResourceKey(id: Int): String {
         val name = getResourceEntryName(id)
-        val type = getResourceTypeName(id)
         val pkg = getResourcePackageName(id)
 
         val key = if (pkg == context.packageName) name else "${pkg}_$name"
-        LingoHubLogger.logger.onDebug("$TAG, Resource key for id $id: $key (name=$name, type=$type, pkg=$pkg)")
+        // The type name is only looked up for the log message.
+        LingoHubLogger.debug {
+            "$TAG, Resource key for id $id: $key (name=$name, type=${getResourceTypeName(id)}, pkg=$pkg)"
+        }
         return key
     }
 
@@ -34,12 +36,12 @@ internal class ResourcesUtil(
         val resourceKey = try {
             getResourceKey(id)
         } catch (e: NotFoundException) {
-            LingoHubLogger.logger.onWarn("$TAG, Resource not found for id: $id", e)
+            LingoHubLogger.warn(e) { "$TAG, Resource not found for id: $id" }
             return super.getText(id)
         }
 
         val text = repository.getText(resourceKey)
-        LingoHubLogger.logger.onDebug("$TAG, getText: key=$resourceKey, translation=$text")
+        LingoHubLogger.debug { "$TAG, getText: key=$resourceKey, translation=$text" }
 
         val result = text ?: super.getText(id)
         LingoHub.stringRequested(resourceKey, result.toString())
@@ -48,7 +50,7 @@ internal class ResourcesUtil(
 
     @Throws(NotFoundException::class)
     override fun getString(id: Int): String {
-        LingoHubLogger.logger.onDebug("$TAG, getString: Getting string for id: $id")
+        LingoHubLogger.debug { "$TAG, getString: Getting string for id: $id" }
         return getText(id).toString()
     }
 
@@ -57,14 +59,14 @@ internal class ResourcesUtil(
         val resourceKey = try {
             getResourceKey(id)
         } catch (e: NotFoundException) {
-            LingoHubLogger.logger.onWarn("$TAG, Resource not found for id: $id", e)
+            LingoHubLogger.warn(e) { "$TAG, Resource not found for id: $id" }
             return super.getString(id, *formatArgs)
         }
 
         val template = repository.getText(resourceKey)?.toString()
-        LingoHubLogger.logger.onDebug(
+        LingoHubLogger.debug {
             "$TAG, getString: key=$resourceKey, translation=$template, args=${formatArgs.joinToString()}"
-        )
+        }
 
         val result = formatTranslation(currentLocale(), template, formatArgs) {
             super.getString(id, *formatArgs)
@@ -78,13 +80,13 @@ internal class ResourcesUtil(
         val resourceKey = try {
             getResourceKey(id)
         } catch (e: NotFoundException) {
-            LingoHubLogger.logger.onWarn("$TAG, Resource not found for id: $id", e)
+            LingoHubLogger.warn(e) { "$TAG, Resource not found for id: $id" }
             return super.getQuantityText(id, quantity)
         }
 
         val pluralKey = quantity.toPluralKeyword()
         val string = repository.getPlural(resourceKey, pluralKey)
-        LingoHubLogger.logger.onDebug("$TAG, getQuantityText: key=$resourceKey, plural=$pluralKey, translation=$string")
+        LingoHubLogger.debug { "$TAG, getQuantityText: key=$resourceKey, plural=$pluralKey, translation=$string" }
 
         val result = string ?: super.getQuantityText(id, quantity)
         LingoHub.stringRequested(resourceKey, result.toString())
@@ -93,7 +95,7 @@ internal class ResourcesUtil(
 
     @Throws(NotFoundException::class)
     override fun getQuantityString(id: Int, quantity: Int): String {
-        LingoHubLogger.logger.onDebug("$TAG, getQuantityString: Getting string for id: $id, quantity: $quantity")
+        LingoHubLogger.debug { "$TAG, getQuantityString: Getting string for id: $id, quantity: $quantity" }
         return getQuantityText(id, quantity).toString()
     }
 
@@ -101,13 +103,13 @@ internal class ResourcesUtil(
     override fun getQuantityString(id: Int, quantity: Int, vararg formatArgs: Any): String {
         val baseString = getQuantityString(id, quantity)
         val result = String.format(currentLocale(), baseString, *formatArgs)
-        LingoHubLogger.logger.onDebug("$TAG, getQuantityString: formatted=$result, args=${formatArgs.joinToString()}")
+        LingoHubLogger.debug { "$TAG, getQuantityString: formatted=$result, args=${formatArgs.joinToString()}" }
         return result
     }
 
     @Throws(NotFoundException::class)
     override fun getStringArray(id: Int): Array<String> {
-        LingoHubLogger.logger.onDebug("$TAG, getStringArray: Getting array for id: $id")
+        LingoHubLogger.debug { "$TAG, getStringArray: Getting array for id: $id" }
         return getTextArray(id).map { it.toString() }.toTypedArray()
     }
 
@@ -116,12 +118,12 @@ internal class ResourcesUtil(
         val resourceKey = try {
             getResourceKey(id)
         } catch (e: NotFoundException) {
-            LingoHubLogger.logger.onWarn("$TAG, Resource not found for id: $id", e)
+            LingoHubLogger.warn(e) { "$TAG, Resource not found for id: $id" }
             return super.getTextArray(id)
         }
 
         val array = repository.getTextArray(resourceKey)
-        LingoHubLogger.logger.onDebug("$TAG, getTextArray: key=$resourceKey, translation=${array?.joinToString()}")
+        LingoHubLogger.debug { "$TAG, getTextArray: key=$resourceKey, translation=${array?.joinToString()}" }
         return array ?: super.getTextArray(id)
     }
 
@@ -130,7 +132,7 @@ internal class ResourcesUtil(
 
     private fun currentLocale(): Locale {
         val locale = LocaleProvider.currentLocale
-        LingoHubLogger.logger.onDebug("$TAG, Current locale from LocaleProvider: $locale")
+        LingoHubLogger.debug { "$TAG, Current locale from LocaleProvider: $locale" }
         return locale
     }
 

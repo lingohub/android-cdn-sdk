@@ -53,4 +53,14 @@ internal object LingoHubLogger {
         this.logLevel = logLevel
         logger = LingoHubLoggerImpl(logLevel)
     }
+
+    // For hot paths such as string lookups: the message is only built when it
+    // is logged, so lookups allocate nothing for logging at NONE.
+    inline fun debug(message: () -> String) {
+        if (logLevel == LingoHubLogLevel.FULL) logger.onDebug(message())
+    }
+
+    inline fun warn(e: Throwable?, message: () -> String) {
+        if (logLevel == LingoHubLogLevel.FULL) logger.onWarn(message(), e)
+    }
 }
