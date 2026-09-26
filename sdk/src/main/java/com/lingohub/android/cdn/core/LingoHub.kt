@@ -139,8 +139,9 @@ object LingoHub {
      * In an `Application` or `Service`, create it once and return its
      * resources from `getResources()`. Do not pass it to
      * `Application.attachBaseContext()`: the app then crashes when Android
-     * delivers a broadcast to a receiver declared in the manifest. See the
-     * README for the full pattern.
+     * delivers a broadcast to a receiver declared in the manifest. In a
+     * `BroadcastReceiver`, wrap the context `onReceive()` gets. See the README
+     * for the full pattern.
      *
      * Safe to call before [configure] (lookups return the packaged strings
      * until a release is loaded) and from any thread. Wrapping a wrapped

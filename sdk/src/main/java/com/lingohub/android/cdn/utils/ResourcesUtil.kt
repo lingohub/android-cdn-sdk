@@ -13,6 +13,9 @@ import java.util.*
 
 internal class ResourcesUtil(
     private val context: Context,
+    // The resources this is a copy of. Android keeps them current, so the
+    // strings packaged in the app are read through them.
+    private val base: Resources,
     assets: AssetManager,
     metrics: DisplayMetrics,
     configuration: Configuration
@@ -42,14 +45,30 @@ internal class ResourcesUtil(
             getResourceKey(id)
         } catch (e: NotFoundException) {
             LingoHubLogger.warn(e) { "$TAG, Resource not found for id: $id" }
-            return super.getText(id)
+            return base.getText(id)
         }
 
         val text = repository.getText(resourceKey)
         LingoHubLogger.debug { "$TAG, getText: key=$resourceKey, translation=$text" }
 
-        val result = text ?: super.getText(id)
+        val result = text ?: base.getText(id)
         LingoHub.stringRequested(resourceKey, result.toString())
+        return result
+    }
+
+    // Like Android's, returns def for id 0 or a missing resource instead of throwing.
+    override fun getText(id: Int, def: CharSequence?): CharSequence? {
+        val resourceKey = try {
+            getResourceKey(id)
+        } catch (e: NotFoundException) {
+            return base.getText(id, def)
+        }
+
+        val text = repository.getText(resourceKey)
+        LingoHubLogger.debug { "$TAG, getText: key=$resourceKey, translation=$text" }
+
+        val result = text ?: base.getText(id, def)
+        result?.let { LingoHub.stringRequested(resourceKey, it.toString()) }
         return result
     }
 
@@ -65,7 +84,7 @@ internal class ResourcesUtil(
             getResourceKey(id)
         } catch (e: NotFoundException) {
             LingoHubLogger.warn(e) { "$TAG, Resource not found for id: $id" }
-            return super.getString(id, *formatArgs)
+            return base.getString(id, *formatArgs)
         }
 
         val template = repository.getText(resourceKey)?.toString()
@@ -74,7 +93,7 @@ internal class ResourcesUtil(
         }
 
         val result = formatTranslation(currentLocale(), template, formatArgs) {
-            super.getString(id, *formatArgs)
+            base.getString(id, *formatArgs)
         }
         LingoHub.stringRequested(resourceKey, result)
         return result
@@ -86,14 +105,14 @@ internal class ResourcesUtil(
             getResourceKey(id)
         } catch (e: NotFoundException) {
             LingoHubLogger.warn(e) { "$TAG, Resource not found for id: $id" }
-            return super.getQuantityText(id, quantity)
+            return base.getQuantityText(id, quantity)
         }
 
         val pluralKey = quantity.toPluralKeyword()
         val string = repository.getPlural(resourceKey, pluralKey)
         LingoHubLogger.debug { "$TAG, getQuantityText: key=$resourceKey, plural=$pluralKey, translation=$string" }
 
-        val result = string ?: super.getQuantityText(id, quantity)
+        val result = string ?: base.getQuantityText(id, quantity)
         LingoHub.stringRequested(resourceKey, result.toString())
         return result
     }
@@ -124,12 +143,12 @@ internal class ResourcesUtil(
             getResourceKey(id)
         } catch (e: NotFoundException) {
             LingoHubLogger.warn(e) { "$TAG, Resource not found for id: $id" }
-            return super.getTextArray(id)
+            return base.getTextArray(id)
         }
 
         val array = repository.getTextArray(resourceKey)
         LingoHubLogger.debug { "$TAG, getTextArray: key=$resourceKey, translation=${array?.joinToString()}" }
-        return array ?: super.getTextArray(id)
+        return array ?: base.getTextArray(id)
     }
 
     private fun Int.toPluralKeyword(): String =

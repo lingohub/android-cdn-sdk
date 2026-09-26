@@ -10,7 +10,9 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
+import com.lingohub.android.cdn.test.R
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -19,8 +21,9 @@ import java.util.Locale
 /**
  * The wrapped application context copies the application's resources. These
  * tests change the configuration of the running process and check that the
- * copy follows, which is what Android and AppCompat rely on when they read
- * the configuration back through the application context.
+ * copy follows, the one returned before the change included: Android and
+ * AppCompat read the configuration back through the application context, and
+ * long-lived helpers keep application.resources.
  */
 @RunWith(AndroidJUnit4::class)
 class ConfigurationChangeTest {
@@ -37,13 +40,20 @@ class ConfigurationChangeTest {
         val originalSetting = shell("settings get system font_scale").trim()
         val originalScale = base.resources.configuration.fontScale
         val targetScale = if (originalScale == 1.3f) 1.15f else 1.3f
-        application.resources // copied before the change
+        // Kept across the change, the way a long-lived helper keeps application.resources.
+        val kept = application.resources
+        val textSizeBefore = kept.getDimension(R.dimen.lh_test_text_size)
 
         try {
             shell("settings put system font_scale $targetScale")
             waitUntil("font scale $targetScale") { base.resources.configuration.fontScale == targetScale }
 
-            assertEquals(targetScale, application.resources.configuration.fontScale)
+            // Android asks the application for its resources during the change,
+            // which updates the kept ones in place.
+            waitUntil("kept resources updated") { kept.configuration.fontScale == targetScale }
+            val textSize = base.resources.getDimension(R.dimen.lh_test_text_size)
+            assertNotEquals(textSizeBefore, textSize, 0f)
+            assertEquals(textSize, kept.getDimension(R.dimen.lh_test_text_size), 0f)
             assertEquals(base.resources.configuration, application.resources.configuration)
         } finally {
             shell(
@@ -56,12 +66,14 @@ class ConfigurationChangeTest {
 
     @Test
     @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
-    fun processDefaultLocaleFollowsAnAppLanguageChange() {
+    fun anAppLanguageChangeReachesTheDefaultLocaleAndKeptResources() {
         val localeManager = application.getSystemService(LocaleManager::class.java)
         val originalAppLocales = localeManager.applicationLocales
         val originalDefault = Locale.getDefault()
-        val target = if (originalDefault.language == "de") "fr" else "de"
-        application.resources // copied before the change
+        // Both pick "many" for 5, where English picks "other".
+        val target = if (originalDefault.language == "ru") "pl" else "ru"
+        val kept = application.resources
+        kept.getQuantityString(R.plurals.lh_test_apples, 5, 5) // plural rules of the old language in use
 
         try {
             localeManager.applicationLocales = LocaleList.forLanguageTags(target)
@@ -70,6 +82,7 @@ class ConfigurationChangeTest {
             // resources right after updating them: a stale copy pins the old language.
             waitUntil("default locale $target") { Locale.getDefault().language == target }
             assertEquals(target, application.resources.configuration.locales[0].language)
+            assertEquals(FIVE_APPLES.getValue(target), kept.getQuantityString(R.plurals.lh_test_apples, 5, 5))
         } finally {
             localeManager.applicationLocales = originalAppLocales
             waitUntil("default locale restored") { Locale.getDefault() == originalDefault }
@@ -88,5 +101,9 @@ class ConfigurationChangeTest {
             if (SystemClock.uptimeMillis() > deadline) fail("timed out waiting for $description")
             SystemClock.sleep(50)
         }
+    }
+
+    private companion object {
+        val FIVE_APPLES = mapOf("ru" to "5 яблок", "pl" to "5 jabłek")
     }
 }

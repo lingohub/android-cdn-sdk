@@ -8,7 +8,8 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 internal class BundleHelper(
-    private val readBundle: suspend () -> List<Bundle>? = { LingoHub.fileHelper.readBundle() }
+    private val readBundle: suspend () -> List<Bundle>? = { LingoHub.fileHelper.readBundle() },
+    private val createRepository: (Bundle) -> IRepository = ::Repository
 ) {
     // The bundles and the repositories built from them are replaced as one
     // unit: a lookup racing a refresh resolves against a single release and
@@ -22,18 +23,21 @@ internal class BundleHelper(
      * notification.
      */
     suspend fun refresh() {
-        release = readBundle()?.let(::Release)
+        release = readBundle()?.let { Release(it, createRepository) }
     }
 
     /** Null until a release is loaded or when it has no bundle for the language. */
     fun repositoryForLocale(locale: Locale): IRepository? = release?.repositoryFor(locale.language)
 
-    private class Release(private val bundles: List<Bundle>) {
+    private class Release(
+        private val bundles: List<Bundle>,
+        private val createRepository: (Bundle) -> IRepository
+    ) {
         private val repositories = ConcurrentHashMap<String, IRepository>()
 
         fun repositoryFor(language: String): IRepository? =
             repositories[language] ?: bundles.find { it.iso == language }?.let { bundle ->
-                repositories.getOrPut(language) { Repository(bundle) }
+                repositories.getOrPut(language) { createRepository(bundle) }
             }
     }
 }

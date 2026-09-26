@@ -1,22 +1,28 @@
 package com.lingohub.android.cdn.utils
 
+import com.lingohub.android.cdn.data.Repository
 import com.lingohub.android.cdn.data.model.Bundle
 import com.lingohub.android.cdn.data.model.Item
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertSame
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.Timeout
 import java.util.Collections
 import java.util.Locale
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 class BundleHelperTest {
     // What the bundle directory on disk holds.
     @Volatile
     private var bundlesOnDisk: List<Bundle>? = null
-    private val bundleHelper = BundleHelper { bundlesOnDisk }
+    private val bundleHelper = BundleHelper(readBundle = { bundlesOnDisk })
 
     @Test
     fun `no release is served before the first refresh`() {
@@ -54,18 +60,52 @@ class BundleHelperTest {
     }
 
     @Test
+    @Timeout(10, unit = TimeUnit.SECONDS)
+    fun `a repository still being built from the previous release is not served after a refresh`() = runBlocking {
+        val building = CountDownLatch(1)
+        val finishBuilding = CountDownLatch(1)
+        val helper = BundleHelper(readBundle = { bundlesOnDisk }) { bundle ->
+            if (bundle.items.single().value == "Hello v1") {
+                building.countDown()
+                finishBuilding.await(5, TimeUnit.SECONDS)
+            }
+            Repository(bundle)
+        }
+        bundlesOnDisk = release("en", "v1")
+        helper.refresh()
+
+        // A lookup builds its repository from v1 and completes only after v2 is live.
+        val slowLookup = thread { helper.repositoryForLocale(Locale.ENGLISH) }
+        building.await()
+        bundlesOnDisk = release("en", "v2")
+        helper.refresh()
+        finishBuilding.countDown()
+        slowLookup.join()
+
+        assertEquals("Hello v2", helper.repositoryForLocale(Locale.ENGLISH)?.getText(GREETING))
+    }
+
+    @Test
     fun `lookups racing refreshes never outlive the release they were built from`() = runBlocking {
         val failures = Collections.synchronizedList(mutableListOf<Throwable>())
+        val readersStarted = CountDownLatch(READERS)
+        val reads = AtomicInteger()
         val running = AtomicBoolean(true)
-        val readers = List(4) {
+        val readers = List(READERS) {
             thread {
+                readersStarted.countDown()
                 try {
-                    while (running.get()) bundleHelper.repositoryForLocale(Locale.ENGLISH)?.getText(GREETING)
+                    while (running.get()) {
+                        bundleHelper.repositoryForLocale(Locale.ENGLISH)?.getText(GREETING)
+                        reads.incrementAndGet()
+                    }
                 } catch (e: Throwable) {
                     failures += e
                 }
             }
         }
+        readersStarted.await()
+        val readsBeforeRefreshes = reads.get()
 
         try {
             repeat(200) { version ->
@@ -80,6 +120,7 @@ class BundleHelperTest {
             readers.forEach { it.join() }
         }
         assertEquals(emptyList<Throwable>(), failures)
+        assertTrue(reads.get() > readsBeforeRefreshes, "the readers looked up nothing while releases changed")
     }
 
     private fun release(language: String, version: String) =
@@ -87,5 +128,6 @@ class BundleHelperTest {
 
     private companion object {
         const val GREETING = "greeting"
+        const val READERS = 4
     }
 }

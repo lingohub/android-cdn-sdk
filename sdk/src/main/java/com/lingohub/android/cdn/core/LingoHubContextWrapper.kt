@@ -13,15 +13,22 @@ import com.lingohub.android.cdn.utils.ResourcesUtil
  */
 internal class LingoHubContextWrapper(base: Context) : ContextWrapper(base) {
 
+    private val lock = Any()
+
     @Volatile
     private var translated: TranslatedResources? = null
 
     override fun getResources(): Resources {
         val base = super.getResources()
-        val current = translated
-        if (current != null && current.isCopyOf(base)) return current.resources
-        // Racing callers may each build a copy; any of them is valid.
-        return TranslatedResources(this, base).also { translated = it }.resources
+        translated?.let { if (it.isCurrentFor(base)) return it.resources }
+        synchronized(lock) {
+            val current = translated
+            if (current != null && current.follows(base)) {
+                if (!current.isCurrentFor(base)) current.update()
+                return current.resources
+            }
+            return TranslatedResources(this, base).also { translated = it }.resources
+        }
     }
 
     override fun createConfigurationContext(overrideConfiguration: Configuration): Context =
@@ -29,21 +36,37 @@ internal class LingoHubContextWrapper(base: Context) : ContextWrapper(base) {
 }
 
 /**
- * A [ResourcesUtil] copy of [base] and what it was copied from. The framework
- * updates [base] in place on configuration and asset changes but not the copy,
- * so the wrapper rebuilds it once [isCopyOf] fails. Long-lived contexts depend
- * on this: after a language change Android derives the process default locale
- * from the application's resources.
+ * A [ResourcesUtil] copy of [base]. Android updates [base] in place on a
+ * configuration change but not the copy, so [update] applies the change to the
+ * copy, in place: resources handed out earlier, such as application.resources
+ * kept by a long-lived helper, stay current too. Android asks the application
+ * for its resources during every configuration change, which runs [update] for
+ * it right away, and derives the process default locale from them. New assets
+ * (overlays, split APKs) need a new copy.
  */
 private class TranslatedResources(context: Context, private val base: Resources) {
     private val assets = base.assets
-    private val configuration = Configuration(base.configuration)
-    val resources = ResourcesUtil(context, assets, base.displayMetrics, configuration)
+
+    @Volatile
+    private var configuration = Configuration(base.configuration)
+
+    val resources = ResourcesUtil(context, base, assets, base.displayMetrics, configuration)
 
     init {
-        LingoHubLogger.logger.onDebug("LingoHubContextWrapper, copied resources for ${configuration.locales}")
+        LingoHubLogger.debug { "LingoHubContextWrapper, copied resources for ${configuration.locales}" }
     }
 
-    fun isCopyOf(current: Resources): Boolean =
-        current === base && current.assets === assets && current.configuration == configuration
+    /** Whether this copies [current] with its current assets, so [update] can bring it up to date. */
+    fun follows(current: Resources): Boolean = current === base && current.assets === assets
+
+    fun isCurrentFor(current: Resources): Boolean = follows(current) && current.configuration == configuration
+
+    // Deprecated for apps, but it is how Android itself updates the base.
+    @Suppress("DEPRECATION")
+    fun update() {
+        val latest = Configuration(base.configuration)
+        resources.updateConfiguration(latest, base.displayMetrics)
+        configuration = latest
+        LingoHubLogger.debug { "LingoHubContextWrapper, updated resources to ${latest.locales}" }
+    }
 }

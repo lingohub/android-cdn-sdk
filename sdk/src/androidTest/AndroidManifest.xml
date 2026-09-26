@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Android hands a receiver with attribution tags a context of its own. -->
+    <attribution
+        android:label="@string/lh_test_attribution"
+        android:tag="lh_test"
+        tools:targetApi="30" />
 
     <!-- Integrates LingoHub exactly as the README describes for strings outside
          Activities, so the tests exercise the documented setup. -->
@@ -10,5 +17,10 @@
         <receiver
             android:name="com.lingohub.android.cdn.core.TranslatedReceiver"
             android:exported="false" />
+        <receiver
+            android:name="com.lingohub.android.cdn.core.AttributedReceiver"
+            android:attributionTags="lh_test"
+            android:exported="false"
+            tools:targetApi="31" />
     </application>
 </manifest>
