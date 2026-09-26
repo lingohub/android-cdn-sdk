@@ -1,8 +1,13 @@
 package com.lingohub.android.cdn.example
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +18,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.lingohub.android.cdn.core.LingoHub
 import com.lingohub.android.cdn.example.ui.theme.LingoHubSampleTheme
 import java.text.DateFormat
@@ -42,6 +49,11 @@ class MainActivity : BaseActivity() {
     // Initialized from the SDK so the state survives recreate() after updates
     private var currentLocale by mutableStateOf(LingoHub.getCurrentLocale())
 
+    private val notificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) sendPushNotification()
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -53,10 +65,26 @@ class MainActivity : BaseActivity() {
                     onLocaleSelected = { locale ->
                         LingoHub.setLocale(locale)
                         currentLocale = locale
-                    }
+                    },
+                    onSendPushNotification = ::onSendPushNotificationClicked
                 )
             }
         }
+    }
+
+    private fun onSendPushNotificationClicked() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            sendPushNotification()
+        }
+    }
+
+    // The notification is built in a Service, outside the Activity delegate's reach.
+    private fun sendPushNotification() {
+        startService(Intent(this, UpgradeNotificationService::class.java))
     }
 }
 
@@ -64,6 +92,7 @@ class MainActivity : BaseActivity() {
 private fun WanderlyDemoScreen(
     currentLocale: Locale,
     onLocaleSelected: (Locale) -> Unit,
+    onSendPushNotification: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var travelers by remember { mutableIntStateOf(1) }
@@ -133,6 +162,10 @@ private fun WanderlyDemoScreen(
 
         Button(onClick = { LingoHub.update() }) {
             Text(text = stringResource(R.string.action_check_updates))
+        }
+
+        OutlinedButton(onClick = onSendPushNotification) {
+            Text(text = stringResource(R.string.action_send_notification))
         }
     }
 }

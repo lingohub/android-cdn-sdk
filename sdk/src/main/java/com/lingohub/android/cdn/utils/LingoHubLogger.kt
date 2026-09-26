@@ -44,8 +44,13 @@ private class LingoHubLoggerImpl(private val logLevel: LingoHubLogLevel = LingoH
 }
 
 internal object LingoHubLogger {
-    lateinit var logger: ILingoHubLogger
+    // Initialized up front: wrapped contexts resolve strings from the first
+    // Application.getResources() call on, before LingoHub.configure() runs.
+    @Volatile
+    var logger: ILingoHubLogger = LingoHubLoggerImpl()
+        private set
 
+    @Volatile
     internal var logLevel: LingoHubLogLevel = LingoHubLogLevel.NONE
         private set
 

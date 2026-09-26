@@ -1,7 +1,6 @@
 package com.lingohub.android.cdn.core
 
 import com.lingohub.android.cdn.data.Preferences
-import com.lingohub.android.cdn.data.Repository
 import com.lingohub.android.cdn.data.model.Environment
 import com.lingohub.android.cdn.utils.awaitBundleTransitions
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -17,17 +16,14 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 class LingoHubTest: BaseContextTest() {
-    private lateinit var mockRepository: Repository
     private lateinit var mockLingoHubUpdateListener: LingoHubUpdateListener
 
     @BeforeEach
     override fun setup() {
         super.setup()
-        mockRepository = mock()
         mockLingoHubUpdateListener = mock()
         LingoHub.configure(baseContext, "test-api-key", Environment.PRODUCTION)
         awaitBundleTransitions()
-        LingoHub.addRepository(Locale.ENGLISH,  mockRepository)
         LingoHub.addUpdateListener( mockLingoHubUpdateListener)
     }
 

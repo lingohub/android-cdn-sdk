@@ -73,6 +73,7 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     // Android testing dependencies
     androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.test.rules)
     androidTestImplementation(libs.androidx.espresso.core)
 }
 

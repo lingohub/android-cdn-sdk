@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <plurals name="lh_test_apples">
+        <item quantity="one">%d jabłko</item>
+        <item quantity="few">%d jabłka</item>
+        <item quantity="many">%d jabłek</item>
+        <item quantity="other">%d jabłka</item>
+    </plurals>
+</resources>

@@ -17,3 +17,8 @@ All notable changes to this project will be documented in this file. Releases up
 
 ### Added
 - `LingoHub.setMinimumCheckInterval(interval, unit)`: the minimum time between update checks.
+- **`LingoHub.wrap(context)`: downloaded translations outside Activities.** Return its resources from `getResources()` in your `Application` and your `Service`s, and `applicationContext`, WorkManager workers, and the notifications a `Service` such as a `FirebaseMessagingService` builds show the downloaded release, too; a `BroadcastReceiver` wraps the context it receives. Until now, only Activities using the LingoHub delegate did. See "Strings outside Activities" in the README (lingohub/organization#2350).
+
+### Fixed
+- **String lookups are safe on any thread.** A lookup that runs while a new release is installed can no longer keep serving the previous release's text until the next update.
+- **`getText(id, default)` serves the downloaded translation** like `getText(id)` does. It returned the string packaged in the app.
