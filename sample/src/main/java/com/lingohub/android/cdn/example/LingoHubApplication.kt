@@ -8,7 +8,7 @@ import com.lingohub.android.cdn.utils.LingoHubLogLevel
 
 class LingoHubApplication : Application() {
     // Serves downloaded translations to everything that reads strings through
-    // the application context, e.g. WorkManager workers and manifest receivers.
+    // the application context, e.g. WorkManager workers.
     private val lingoHubContext by lazy { LingoHub.wrap(baseContext) }
 
     override fun getResources(): Resources = lingoHubContext.resources

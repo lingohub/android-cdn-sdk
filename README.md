@@ -133,7 +133,7 @@ class MainActivity : BaseActivity() {
 
 The delegate is **mandatory**: it is what routes resource lookups through LingoHub. Activities without it keep showing the strings packaged in your APK — downloaded translations are never applied to them, not even after an app restart.
 
-Strings you read outside Activities — in a `Service`, a push notification, or through `applicationContext` — need a small addition, see [Strings outside Activities](#strings-outside-activities).
+Strings you read outside Activities — in a `Service`, a `BroadcastReceiver`, a push notification, or through `applicationContext` — need a small addition, see [Strings outside Activities](#strings-outside-activities).
 
 ### 3. Use your strings as usual
 
@@ -246,7 +246,7 @@ A failed check doesn't start the interval: the next `update()` call tries again,
 
 ### Strings outside Activities
 
-The Activity delegate covers Activities. Everything else reads strings through a context of its own: the `Application` — and with it `applicationContext`, WorkManager workers, and broadcast receivers declared in your manifest — and every `Service`, such as the `FirebaseMessagingService` that builds your push notifications. Route those through LingoHub by returning `LingoHub.wrap(...)` resources from `getResources()`:
+The Activity delegate covers Activities. Everything else reads strings through a context of its own: the `Application` — and with it `applicationContext` and WorkManager workers — every `Service`, such as the `FirebaseMessagingService` that builds your push notifications, and every `BroadcastReceiver`. Route the `Application` and your `Service`s through LingoHub by returning `LingoHub.wrap(...)` resources from `getResources()`:
 
 ```kotlin
 import android.app.Application
@@ -290,9 +290,26 @@ class PushService : FirebaseMessagingService() {
 }
 ```
 
+A `BroadcastReceiver` reads strings through the `context` Android passes to `onReceive()`. For most receivers declared in your manifest, that context delegates to your `Application`, but not for all of them: a receiver with `android:attributionTags`, for example, gets a context of its own. Wrap it where you read strings:
+
+```kotlin
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import com.lingohub.android.cdn.core.LingoHub
+
+class ReminderReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        val text = LingoHub.wrap(context).getString(R.string.reminder_text)   // downloaded translation
+        // ...
+    }
+}
+```
+
 * Override `getResources()` — don't pass `LingoHub.wrap(base)` to `super.attachBaseContext(...)`. Android requires the application's base context to be its own implementation when it delivers broadcasts to receivers declared in the manifest (Firebase Messaging and WorkManager declare some), so wrapping it crashes the app with a `ClassCastException`.
-* Wrapped contexts are safe to use before `LingoHub.configure()` runs — they return the strings packaged in your APK until a release is available — and from any thread. They follow `LingoHub.setLocale(...)`, pick up a new release with the next lookup, and follow configuration changes such as a new system language or dark mode.
+* Wrapped contexts are safe to use before `LingoHub.configure()` runs — they return the strings packaged in your APK until a release is available — and from any thread. They follow `LingoHub.setLocale(...)`, pick up a new release with the next lookup, and follow configuration changes such as a new system language or dark mode, including the `application.resources` a long-lived helper keeps.
 * For any other context, wrap it where you read the string: `LingoHub.wrap(context).getString(R.string.your_string)`. This includes contexts created with `createConfigurationContext(...)`, for example by `ContextCompat.getContextForLanguage(...)`. Keep a wrapped context you use repeatedly instead of wrapping it on every call.
+* Downloaded strings are always in LingoHub's language: the one you pass to `LingoHub.setLocale(...)`, otherwise the app's current default locale (`Locale.getDefault()`). A context created for another language, with `createConfigurationContext(...)` or `ContextCompat.getContextForLanguage(...)`, changes only which packaged strings serve as the fallback.
 
 `wrap()` covers the string lookups your code makes. These stay as packaged in your APK:
 
@@ -354,7 +371,7 @@ While update checks are paused, `LingoHub.update()` reports the failure that cau
 * **`onUpdate` never fires and nothing changes** — most likely no release is published yet for your app version and environment. Publish a release in your Distribution (or mark one as the fallback), and double-check that the `environment` you configure matches the release's environment. Enable `LingoHubLogLevel.FULL` in a debug build to see what the SDK is doing.
 * **Strings never change, not even after an app restart** — your Activities don't use the LingoHub delegate. It is mandatory; see [Quick Start step 2](#2-wrap-your-activities).
 * **Strings change only after leaving and reopening a screen** — the delegate is in place, but you don't `recreate()` the visible Activity in `onUpdate`.
-* **Notifications, Services, or `applicationContext` show the packaged strings** — the Activity delegate doesn't reach them; see [Strings outside Activities](#strings-outside-activities).
+* **Notifications, Services, receivers, or `applicationContext` show the packaged strings** — the Activity delegate doesn't reach them; see [Strings outside Activities](#strings-outside-activities).
 * **Error 401** — the CDN key is missing, invalid, or was revoked. The error message contains the reason (for example `CDN_KEY_NOT_FOUND`).
 * **Error 429** — your CDN usage budget is exhausted. The SDK pauses its checks for an hour, or longer when the CDN asks for it, and reports the 429 without contacting the CDN until then.
 
